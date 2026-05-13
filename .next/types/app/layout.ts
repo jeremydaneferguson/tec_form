@@ -1,4 +1,4 @@
-// File: /Users/joe/Docs/Projects/tec-form/src/app/layout.js
+// File: C:\Users\10036304\Documents\Work\TEC\tec-form\src\app\layout.js
 import * as entry from '../../../src/app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

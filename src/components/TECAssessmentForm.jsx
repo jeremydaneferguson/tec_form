@@ -1,16 +1,88 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function TECAssessmentForm() {
     const [currentStep, setCurrentStep] = useState(1);
-    const totalSteps = 17; // We'll increase this as we add more steps
+    const [formData, setFormData] = useState({});
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveStatus, setSaveStatus] = useState('');
+    const [email, setEmail] = useState('');
+    const totalSteps = 17;
+
+    // Load saved form data on mount
+    useEffect(() => {
+        const loadFormData = async () => {
+            const savedEmail = localStorage.getItem('tecFormEmail');
+            if (savedEmail) {
+                setEmail(savedEmail);
+                try {
+                    const response = await fetch(`/api/submissions?email=${encodeURIComponent(savedEmail)}`);
+                    if (response.ok) {
+                        const submission = await response.json();
+                        setFormData(submission.formData || {});
+                        setSaveStatus('Form loaded from database');
+                        setTimeout(() => setSaveStatus(''), 2000);
+                    }
+                } catch (error) {
+                    console.error('Error loading form data:', error);
+                }
+            }
+        };
+        loadFormData();
+    }, []);
+
+    // Save form data to database
+    const saveFormData = async () => {
+        if (!email) {
+            setSaveStatus('Please enter your email first');
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            const response = await fetch('/api/submissions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email,
+                    formData
+                })
+            });
+
+            if (response.ok) {
+                localStorage.setItem('tecFormEmail', email);
+                setSaveStatus('Form saved successfully');
+                setTimeout(() => setSaveStatus(''), 2000);
+            } else {
+                setSaveStatus('Error saving form');
+            }
+        } catch (error) {
+            console.error('Error saving form:', error);
+            setSaveStatus('Error saving form');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // Update form field
+    const updateField = (fieldName, value) => {
+        setFormData(prev => ({
+            ...prev,
+            [fieldName]: value
+        }));
+    };
 
     const nextStep = () => {
-        setCurrentStep(currentStep + 1);
+        if (currentStep < totalSteps) {
+            setCurrentStep(currentStep + 1);
+            saveFormData();
+        }
     };
 
     const prevStep = () => {
-        setCurrentStep(currentStep - 1);
+        if (currentStep > 1) {
+            setCurrentStep(currentStep - 1);
+        }
     };
 
     const renderSection = () => {
@@ -28,6 +100,8 @@ export default function TECAssessmentForm() {
                       <input 
                         type="email" 
                         required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         className="w-full p-2 border rounded"
                         placeholder="Valid email"
                       />
@@ -40,6 +114,8 @@ export default function TECAssessmentForm() {
                     <label className="block mb-1">PROJECT NAME:</label>
                     <input 
                       type="text"
+                      value={formData.projectName || ''}
+                      onChange={(e) => updateField('projectName', e.target.value)}
                       className="w-full p-2 border rounded"
                     />
                   </div>
@@ -54,6 +130,8 @@ export default function TECAssessmentForm() {
                     <input 
                       type="text"
                       required
+                      value={formData.client || ''}
+                      onChange={(e) => updateField('client', e.target.value)}
                       placeholder="Department/Unit/Office"
                       className="w-full p-2 border rounded"
                     />
@@ -68,6 +146,8 @@ export default function TECAssessmentForm() {
                     <input 
                       type="text"
                       required
+                      value={formData.contactName || ''}
+                      onChange={(e) => updateField('contactName', e.target.value)}
                       placeholder="Contact Name"
                       className="w-full p-2 border rounded"
                     />
@@ -82,6 +162,8 @@ export default function TECAssessmentForm() {
                     <input 
                       type="date"
                       required
+                      value={formData.date || ''}
+                      onChange={(e) => updateField('date', e.target.value)}
                       className="w-full p-2 border rounded"
                     />
                   </div>
@@ -93,7 +175,13 @@ export default function TECAssessmentForm() {
                     <div className="space-y-2">
                       {['Mr', 'Mrs', 'Ms.', 'Dr', 'Professor', 'Other'].map((title) => (
                         <label key={title} className="flex items-center space-x-2">
-                          <input type="radio" name="title" value={title} />
+                          <input 
+                            type="radio" 
+                            name="title" 
+                            value={title}
+                            checked={formData.title === title}
+                            onChange={(e) => updateField('title', e.target.value)}
+                          />
                           <span>{title}</span>
                         </label>
                       ))}
@@ -109,6 +197,8 @@ export default function TECAssessmentForm() {
                     <div>
                       <select 
                         required
+                        value={formData.projectType || ''}
+                        onChange={(e) => updateField('projectType', e.target.value)}
                         className="w-full p-2 border rounded"
                       >
                         <option value="">Select a project type</option>
@@ -2207,7 +2297,7 @@ export default function TECAssessmentForm() {
         <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
           {renderSection()}
           
-          <div className="flex justify-between mt-6">
+          <div className="flex justify-between mt-6 gap-4">
             {currentStep > 1 && (
               <button
                 type="button"
@@ -2220,12 +2310,27 @@ export default function TECAssessmentForm() {
             
             <button
               type="button"
-              onClick={currentStep === totalSteps ? () => console.log('Form submitted!') : nextStep}
+              onClick={saveFormData}
+              disabled={isSaving}
+              className="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 disabled:bg-gray-400"
+            >
+              {isSaving ? 'Saving...' : 'Save'}
+            </button>
+            
+            <button
+              type="button"
+              onClick={currentStep === totalSteps ? saveFormData : nextStep}
               className={`${currentStep === 1 ? 'ml-auto' : ''} bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600`}
-          >
-              {currentStep === totalSteps ? 'Submit' : 'Next'}
+            >
+              {currentStep === totalSteps ? 'Submit & Save' : 'Next'}
             </button>
           </div>
+
+          {saveStatus && (
+            <div className={`p-3 rounded ${saveStatus.includes('successfully') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+              {saveStatus}
+            </div>
+          )}
         </form>
       </div>
     );

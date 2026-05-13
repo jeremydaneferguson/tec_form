@@ -7,6 +7,14 @@
 node_modules/
 dist/
 
+# Environment variables
+.env.local
+.env.*.local
+.env
+
+# Prisma
+.env
+
 # Compiled Java class files
 *.class
 
@@ -47,4 +55,7 @@ Thumbs.db
 *.flv
 *.mov
 *.wmv
+
+
+*.next/
 
