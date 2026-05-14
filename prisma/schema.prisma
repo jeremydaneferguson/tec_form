@@ -1,7 +1,8 @@
 model User {
-  id    String   @id @default(cuid())
-  email String   @unique @db.VarChar(255)
-  role  String   @default("requestor") // requestor, approver, admin
+  id         String   @id @default(cuid())
+  email      String   @unique @db.VarChar(255)
+  role       String   @default("requestor") // requestor, approver, admin
+  department String?  @db.VarChar(255)
 }
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema

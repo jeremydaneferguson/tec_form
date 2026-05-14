@@ -9,7 +9,7 @@ function isValidRole(role) {
 export async function GET() {
   try {
     const users = await prisma.user.findMany({
-      select: { id: true, email: true, role: true },
+      select: { id: true, email: true, role: true, department: true },
       orderBy: { email: 'asc' },
     });
 
@@ -24,11 +24,13 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const { email, role } = await request.json();
+    const { email, role, department } = await request.json();
 
-    if (!email || !isValidRole(role)) {
+    const normalizedDepartment = typeof department === 'string' ? department.trim() : '';
+
+    if (!email || !isValidRole(role) || !normalizedDepartment) {
       return Response.json(
-        { error: 'Valid email and role are required' },
+        { error: 'Valid email, role, and department are required' },
         { status: 400 }
       );
     }
@@ -37,8 +39,9 @@ export async function POST(request) {
       data: {
         email: email.trim().toLowerCase(),
         role,
+        department: normalizedDepartment,
       },
-      select: { id: true, email: true, role: true },
+      select: { id: true, email: true, role: true, department: true },
     });
 
     return Response.json(user, { status: 201 });
@@ -56,19 +59,42 @@ export async function POST(request) {
 
 export async function PATCH(request) {
   try {
-    const { id, role } = await request.json();
+    const { id, role, department } = await request.json();
 
-    if (!id || !isValidRole(role)) {
+    const data = {};
+
+    if (role !== undefined) {
+      if (!isValidRole(role)) {
+        return Response.json(
+          { error: 'Valid role is required' },
+          { status: 400 }
+        );
+      }
+      data.role = role;
+    }
+
+    if (department !== undefined) {
+      const normalizedDepartment = typeof department === 'string' ? department.trim() : '';
+      if (!normalizedDepartment) {
+        return Response.json(
+          { error: 'Valid department is required' },
+          { status: 400 }
+        );
+      }
+      data.department = normalizedDepartment;
+    }
+
+    if (!id || Object.keys(data).length === 0) {
       return Response.json(
-        { error: 'User ID and valid role are required' },
+        { error: 'User ID and at least one valid field are required' },
         { status: 400 }
       );
     }
 
     const user = await prisma.user.update({
       where: { id },
-      data: { role },
-      select: { id: true, email: true, role: true },
+      data,
+      select: { id: true, email: true, role: true, department: true },
     });
 
     return Response.json(user, { status: 200 });
@@ -78,7 +104,7 @@ export async function PATCH(request) {
     }
 
     return Response.json(
-      { error: `Failed to update user role: ${error.message}` },
+      { error: `Failed to update user: ${error.message}` },
       { status: 500 }
     );
   }

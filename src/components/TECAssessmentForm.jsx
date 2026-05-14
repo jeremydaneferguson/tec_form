@@ -85,6 +85,20 @@ export default function TECAssessmentForm() {
   };
 
     const formatFieldLabel = (fieldName) => {
+        if (fieldName.startsWith('deptReview_')) {
+          const parts = fieldName.split('_');
+          const departmentSlug = parts[1] || 'department';
+          const fieldSlug = parts.slice(2).join('_') || 'response';
+          const department = departmentSlug
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (char) => char.toUpperCase());
+          const field = fieldSlug
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (char) => char.toUpperCase());
+
+          return `${department} Review: ${field}`;
+        }
+
         return fieldName
             .replace(/([A-Z])/g, ' $1')
             .replace(/[-_]/g, ' ')
@@ -239,6 +253,72 @@ export default function TECAssessmentForm() {
         }));
     };
 
+    const isDepartmentStep = currentStep >= 6 && currentStep <= totalSteps;
+
+    const slugify = (value = '') => value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+
+    const getDepartmentForCurrentStep = () => {
+      const mappedDepartment = Object.keys(reviewingDepartmentStepMap).find(
+        (department) => reviewingDepartmentStepMap[department] === currentStep
+      );
+
+      return mappedDepartment || formData.reviewingDepartment || 'department';
+    };
+
+    const buildDepartmentReviewKey = (rawFieldName) => {
+      const departmentSlug = slugify(getDepartmentForCurrentStep()) || 'department';
+      const fieldSlug = slugify(rawFieldName) || 'response';
+      return `deptReview_${departmentSlug}_${fieldSlug}`;
+    };
+
+    const handleDepartmentFieldChange = (event) => {
+      if (!isDepartmentStep) {
+        return;
+      }
+
+      const target = event.target;
+      const tagName = target?.tagName?.toLowerCase();
+
+      if (!['input', 'select', 'textarea'].includes(tagName)) {
+        return;
+      }
+
+      if (tagName === 'input' && ['button', 'submit', 'reset'].includes(target.type)) {
+        return;
+      }
+
+      if (target.type === 'radio' && !target.checked) {
+        return;
+      }
+
+      const formElements = Array.from(event.currentTarget.querySelectorAll('input, select, textarea'));
+      const elementIndex = formElements.indexOf(target) + 1;
+
+      const fallbackName = `field_${tagName}_${elementIndex}`;
+      const rawFieldName = target.name || target.id || target.getAttribute('data-field') || fallbackName;
+      const storageKey = buildDepartmentReviewKey(rawFieldName);
+
+      let value;
+
+      if (target.type === 'checkbox') {
+        if (target.name) {
+          const checkedValues = Array.from(
+            event.currentTarget.querySelectorAll(`input[type="checkbox"][name="${target.name}"]:checked`)
+          ).map((input) => input.value || 'checked');
+          value = checkedValues;
+        } else {
+          value = target.checked;
+        }
+      } else {
+        value = target.value;
+      }
+
+      updateField(storageKey, value);
+    };
+
     const nextStep = () => {
         if (currentStep < totalSteps) {
             if (formData.reviewingDepartment === 'MITS' && currentStep === reviewingDepartmentStepMap['MITS']) {
@@ -252,6 +332,11 @@ export default function TECAssessmentForm() {
 
     const prevStep = () => {
         if (currentStep > 1) {
+        if (currentStep >= 6 && currentStep <= 17) {
+          setCurrentStep(4);
+          return;
+        }
+
             setCurrentStep(currentStep - 1);
         }
     };
@@ -261,19 +346,21 @@ export default function TECAssessmentForm() {
     };
 
     const exportAsPdf = async () => {
+      // Open the window synchronously to avoid pop-up blockers
+      const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700');
       setIsExportingPdf(true);
+
+      if (!printWindow) {
+        setSaveStatus('Unable to open PDF preview. Please allow pop-ups and try again.');
+        setIsExportingPdf(false);
+        return;
+      }
 
       try {
         const saved = await saveFormData();
 
         if (!saved) {
-          return;
-        }
-
-        const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700');
-
-        if (!printWindow) {
-          setSaveStatus('Unable to open PDF preview. Please allow pop-ups and try again.');
+          printWindow.close();
           return;
         }
 
@@ -596,6 +683,16 @@ export default function TECAssessmentForm() {
                 <div className="space-y-4">
                   <div>
                     <label className="block mb-1">
+                       Existing Building Area:
+                      </label>
+                      <input 
+                        type="text" 
+                        required
+                        className="w-full p-2 border rounded"
+                      />
+                    </div>
+                    <div>
+                      <label className="block mb-1">
                       Proposed Building Area:
                     </label>
                     <input 
@@ -638,6 +735,27 @@ export default function TECAssessmentForm() {
                       <option value="relativelyFlat">Relatively Flat</option>
                       <option value="sleep">Sleep</option>
                       <option value="moderatelySloping">Moderately Sloping</option>
+                    </select>
+                  </div>
+                </div>
+              </section>
+
+              <section className="bg-white p-6 rounded-lg shadow">
+                <div>
+                  <label className="block mb-1">
+                    Building functions:
+                  </label>
+                  <div>
+                    <select required className="w-full p-2 border rounded">
+                      <option value="">Select a Building Function</option>
+                      <option value="Academic">Academic</option>
+                      <option value="Administrative">Administrative</option>
+                      <option value="Commercial">Commercial</option>
+                      <option value="Circulation">Circulation</option>
+                      <option value="Student Services">Student Services</option>
+                      <option value="Housing & Accommodation">Housing & Accommodation</option>
+                      <option value="Utility Service">Utility Service</option>
+                      <option value="Other">Other</option>
                     </select>
                   </div>
                 </div>
@@ -1164,6 +1282,7 @@ export default function TECAssessmentForm() {
                 </h3>
                 <div>
                   <textarea
+                    name="comments"
                     required
                     rows={4}
                     placeholder="Long answer text"
@@ -1265,6 +1384,7 @@ export default function TECAssessmentForm() {
                 </h3>
                 <div>
                   <textarea
+                    name="comments"
                     required
                     rows={4}
                     placeholder="Long answer text"
@@ -1374,6 +1494,7 @@ export default function TECAssessmentForm() {
                 </h3>
                 <div>
                   <textarea
+                    name="comments"
                     required
                     rows={4}
                     placeholder="Long answer text"
@@ -1475,6 +1596,7 @@ export default function TECAssessmentForm() {
                 </h3>
                 <div>
                   <textarea
+                    name="comments"
                     required
                     rows={4}
                     placeholder="Long answer text"
@@ -1646,6 +1768,7 @@ export default function TECAssessmentForm() {
                 </h3>
                 <div>
                   <textarea
+                    name="comments"
                     required
                     rows={4}
                     placeholder="Long answer text"
@@ -1879,6 +2002,7 @@ export default function TECAssessmentForm() {
                 </h3>
                 <div>
                   <textarea
+                    name="comments"
                     required
                     rows={4}
                     placeholder="Long answer text"
@@ -2002,6 +2126,7 @@ export default function TECAssessmentForm() {
                   </h3>
                   <div>
                     <textarea
+                      name="comments"
                       required
                       rows={4}
                       placeholder="Long answer text"
@@ -2175,6 +2300,7 @@ export default function TECAssessmentForm() {
                   </h3>
                   <div>
                     <textarea
+                      name="comments"
                       required
                       rows={4}
                       placeholder="Long answer text"
@@ -2263,6 +2389,7 @@ export default function TECAssessmentForm() {
                 </h3>
                 <div>
                   <textarea
+                    name="comments"
                     required
                     rows={4}
                     placeholder="Long answer text"
@@ -2394,7 +2521,7 @@ export default function TECAssessmentForm() {
               {/* Planning & Research Rating Section */}
               <section className="bg-white p-6 rounded-lg shadow">
                 <h3 className="text-xl font-semibold mb-4">
-                  Office - Planning & Inst Research rating of the proposal.
+                  Campus Legal Office rating of the proposal.
                   <span className="text-red-500 ml-1">*</span>
                 </h3>
                 <div className="flex items-center justify-center space-x-4">
@@ -2427,6 +2554,7 @@ export default function TECAssessmentForm() {
                 </h3>
                 <div>
                   <textarea
+                    name="comments"
                     required
                     rows={4}
                     placeholder="Long answer text"
@@ -2441,7 +2569,7 @@ export default function TECAssessmentForm() {
           return(
             <div>
               <section className="bg-white p-6 rounded-lg shadow">
-                <h2 className="text-xl font-semibold mb-4">Office - Planning & Inst Research</h2>
+                <h2 className="text-xl font-semibold mb-4">Campus Legal Office</h2>
               </section>
 
               {/* Agreement Type Section */}
@@ -2504,6 +2632,7 @@ export default function TECAssessmentForm() {
                 </h3>
                 <div>
                   <textarea
+                    name="comments"
                     required
                     rows={4}
                     placeholder="Long answer text"
@@ -2518,7 +2647,7 @@ export default function TECAssessmentForm() {
           return (
             <div>
               <section className="bg-white p-6 rounded-lg shadow">
-                <h2 className="text-xl font-semibold mb-4">Office - Planning & Inst Research</h2>
+                <h2 className="text-xl font-semibold mb-4">Secretariat</h2>
               </section>
               
               {/* Weighted Average Section */}
@@ -2586,6 +2715,7 @@ export default function TECAssessmentForm() {
                 </h3>
                 <div>
                   <textarea
+                    name="comments"
                     required
                     rows={4}
                     placeholder="Long answer text"
@@ -2628,7 +2758,7 @@ export default function TECAssessmentForm() {
           </div>
         </div>
         
-        <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+        <form className="space-y-6" onSubmit={(e) => e.preventDefault()} onChange={handleDepartmentFieldChange}>
           {renderSection()}
           
           <div className="flex justify-between mt-6 gap-4">
@@ -2662,13 +2792,25 @@ export default function TECAssessmentForm() {
               </button>
             )}
             
-            <button
-              type="button"
-              onClick={currentStep === totalSteps ? submitForm : nextStep}
-              className={`${currentStep === 1 ? 'ml-auto' : ''} bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600`}
-            >
-              {currentStep === totalSteps ? 'Submit & Save' : 'Next'}
-            </button>
+            {/* Show 'Next' only on steps 1–5; show 'Submit & Save' on department/Secretariat steps (6–17) */}
+            {currentStep <= 5 && (
+              <button
+                type="button"
+                onClick={nextStep}
+                className={`${currentStep === 1 ? 'ml-auto' : ''} bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600`}
+              >
+                Next
+              </button>
+            )}
+            {currentStep >= 6 && currentStep <= totalSteps && (
+              <button
+                type="button"
+                onClick={submitForm}
+                className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
+              >
+                Submit & Save
+              </button>
+            )}
           </div>
 
           {saveStatus && (

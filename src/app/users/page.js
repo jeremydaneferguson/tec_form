@@ -2,6 +2,19 @@
 import { useEffect, useState } from "react";
 
 const ROLES = ["requestor", "approver", "admin"];
+const DEPARTMENTS = [
+  "EMD",
+  "Safety & Emergency",
+  "MITS",
+  "Human Res Mgt Div",
+  "BDO",
+  "CPO",
+  "BURSARY",
+  "Campus Security Office",
+  "Office - Planning & Inst Research",
+  "Campus Legal Office",
+  "Secretariat",
+];
 
 export default function UserManagementPage() {
   const [users, setUsers] = useState([]);
@@ -34,6 +47,7 @@ export default function UserManagementPage() {
   // User creation form state
   const [newEmail, setNewEmail] = useState("");
   const [newRole, setNewRole] = useState(ROLES[0]);
+  const [newDepartment, setNewDepartment] = useState(DEPARTMENTS[0]);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
 
@@ -45,12 +59,17 @@ export default function UserManagementPage() {
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: newEmail.trim().toLowerCase(), role: newRole }),
+        body: JSON.stringify({
+          email: newEmail.trim().toLowerCase(),
+          role: newRole,
+          department: newDepartment,
+        }),
       });
       if (res.ok) {
         await fetchUsers();
         setNewEmail("");
         setNewRole(ROLES[0]);
+        setNewDepartment(DEPARTMENTS[0]);
       } else {
         const err = await res.json();
         setCreateError(err.error || "Failed to create user");
@@ -62,22 +81,23 @@ export default function UserManagementPage() {
     }
   };
 
-  const handleRoleChange = async (id, newRole) => {
+  const handleUserUpdate = async (id, updates) => {
     try {
       setUpdatingUserId(id);
       const res = await fetch("/api/users", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, role: newRole }),
+        body: JSON.stringify({ id, ...updates }),
       });
       if (res.ok) {
-        setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role: newRole } : u)));
+        const updatedUser = await res.json();
+        setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updatedUser } : u)));
       } else {
         const err = await res.json().catch(() => ({}));
-        setError(err.error || "Failed to update user role");
+        setError(err.error || "Failed to update user");
       }
     } catch {
-      setError("Error updating user role");
+      setError("Error updating user");
     } finally {
       setUpdatingUserId("");
     }
@@ -113,6 +133,21 @@ export default function UserManagementPage() {
             ))}
           </select>
         </div>
+        <div>
+          <label className="block mb-1 font-medium">Department</label>
+          <select
+            value={newDepartment}
+            onChange={(e) => setNewDepartment(e.target.value)}
+            className="border p-2 rounded"
+            required
+          >
+            {DEPARTMENTS.map((department) => (
+              <option key={department} value={department}>
+                {department}
+              </option>
+            ))}
+          </select>
+        </div>
         <button
           type="submit"
           className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
@@ -133,6 +168,7 @@ export default function UserManagementPage() {
             <tr>
               <th className="p-2 border">Email</th>
               <th className="p-2 border">Role</th>
+              <th className="p-2 border">Department</th>
             </tr>
           </thead>
           <tbody>
@@ -142,13 +178,27 @@ export default function UserManagementPage() {
                 <td className="p-2 border">
                   <select
                     value={user.role}
-                    onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                    onChange={(e) => handleUserUpdate(user.id, { role: e.target.value })}
                     disabled={updatingUserId === user.id}
                     className="capitalize border p-1 rounded"
                   >
                     {ROLES.map((role) => (
                       <option key={role} value={role}>
                         {role.charAt(0).toUpperCase() + role.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="p-2 border">
+                  <select
+                    value={user.department || ""}
+                    onChange={(e) => handleUserUpdate(user.id, { department: e.target.value })}
+                    disabled={updatingUserId === user.id}
+                    className="border p-1 rounded min-w-52"
+                  >
+                    {DEPARTMENTS.map((department) => (
+                      <option key={department} value={department}>
+                        {department}
                       </option>
                     ))}
                   </select>

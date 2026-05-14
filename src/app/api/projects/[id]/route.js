@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(_request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     if (!id) {
       return Response.json({ error: 'Project id is required' }, { status: 400 });
