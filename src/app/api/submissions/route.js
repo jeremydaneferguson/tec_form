@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { email, formData } = body;
+    const { email, formData, status = 'draft' } = body;
 
     if (!email) {
       return Response.json(
@@ -27,6 +27,7 @@ export async function POST(request) {
         where: { id: existingSubmission.id },
         data: {
           formData: formData || existingSubmission.formData,
+          status,
           updatedAt: new Date(),
         },
       });
@@ -36,7 +37,7 @@ export async function POST(request) {
         data: {
           email,
           formData: formData || {},
-          status: 'draft',
+          status,
         },
       });
     }

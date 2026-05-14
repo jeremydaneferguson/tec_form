@@ -1,13 +1,168 @@
 "use client";
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function TECAssessmentForm() {
+  const router = useRouter();
     const [currentStep, setCurrentStep] = useState(1);
     const [formData, setFormData] = useState({});
     const [isSaving, setIsSaving] = useState(false);
+    const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [otherSelections, setOtherSelections] = useState({});
     const [saveStatus, setSaveStatus] = useState('');
     const [email, setEmail] = useState('');
     const totalSteps = 17;
+
+    const reviewingDepartmentStepMap = {
+      EMD: 6,
+      'Safety & Emergency': 7,
+      MITS: 8,
+      'Human Res Mgt Div': 9,
+      BDO: 10,
+      CPO: 12,
+      BURSARY: 13,
+      'Campus Security Office': 14,
+      'Office - Planning & Inst Research': 15,
+      'Campus Legal Office': 16,
+      Secretariat: 17,
+    };
+
+    const handleReviewingDepartmentChange = (department) => {
+      updateField('reviewingDepartment', department);
+      setCurrentStep(reviewingDepartmentStepMap[department] || 5);
+    };
+
+  const setOtherSelection = (fieldName, isSelected, nestedKey) => {
+    setOtherSelections((prev) => {
+      if (!nestedKey) {
+        return {
+          ...prev,
+          [fieldName]: isSelected,
+        };
+      }
+
+      const currentGroup = typeof prev[fieldName] === 'object' && prev[fieldName] !== null
+        ? prev[fieldName]
+        : {};
+
+      return {
+        ...prev,
+        [fieldName]: {
+          ...currentGroup,
+          [nestedKey]: isSelected,
+        },
+      };
+    });
+  };
+
+  const isOtherSelected = (fieldName) => {
+    const selection = otherSelections[fieldName];
+
+    if (typeof selection === 'object' && selection !== null) {
+      return Object.values(selection).some(Boolean);
+    }
+
+    return Boolean(selection);
+  };
+
+  const renderOtherTextInput = (fieldName, placeholder = 'Please specify') => {
+    if (!isOtherSelected(fieldName)) {
+      return null;
+    }
+
+    return (
+      <div className="mt-3">
+        <input
+          type="text"
+          value={formData[`${fieldName}Other`] || ''}
+          onChange={(e) => updateField(`${fieldName}Other`, e.target.value)}
+          placeholder={placeholder}
+          className="w-full p-2 border rounded"
+        />
+      </div>
+    );
+  };
+
+    const formatFieldLabel = (fieldName) => {
+        return fieldName
+            .replace(/([A-Z])/g, ' $1')
+            .replace(/[-_]/g, ' ')
+            .replace(/^./, (char) => char.toUpperCase())
+            .trim();
+    };
+
+    const buildExportMarkup = () => {
+        const summaryEntries = [
+            ['Email', email],
+            ...Object.entries(formData).map(([field, value]) => [formatFieldLabel(field), value])
+        ].filter(([, value]) => value !== undefined && value !== null && value !== '');
+
+        const rows = summaryEntries.length > 0
+            ? summaryEntries.map(([label, value]) => {
+                const displayValue = typeof value === 'object'
+                    ? JSON.stringify(value)
+                    : String(value);
+
+                return `
+                    <tr>
+                      <th>${label}</th>
+                      <td>${displayValue}</td>
+                    </tr>
+                `;
+            }).join('')
+            : `
+                <tr>
+                  <td colspan="2">No saved submission data is available yet.</td>
+                </tr>
+            `;
+
+        return `
+          <!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="UTF-8" />
+              <title>TEC Assessment Submission</title>
+              <style>
+                body {
+                  font-family: Arial, sans-serif;
+                  margin: 40px;
+                  color: #0f172a;
+                }
+                h1 {
+                  margin-bottom: 8px;
+                }
+                p {
+                  margin-top: 0;
+                  color: #475569;
+                }
+                table {
+                  width: 100%;
+                  border-collapse: collapse;
+                  margin-top: 24px;
+                }
+                th, td {
+                  border: 1px solid #cbd5e1;
+                  padding: 12px;
+                  vertical-align: top;
+                  text-align: left;
+                }
+                th {
+                  width: 35%;
+                  background: #f8fafc;
+                }
+              </style>
+            </head>
+            <body>
+              <h1>TEC Proposal Assessment Form</h1>
+              <p>Export generated ${new Date().toLocaleString()}</p>
+              <table>
+                <tbody>${rows}</tbody>
+              </table>
+            </body>
+          </html>
+        `;
+    };
 
     // Load saved form data on mount
     useEffect(() => {
@@ -32,10 +187,10 @@ export default function TECAssessmentForm() {
     }, []);
 
     // Save form data to database
-    const saveFormData = async () => {
+    const saveFormData = async ({ status = 'draft', redirectToThankYou = false } = {}) => {
         if (!email) {
             setSaveStatus('Please enter your email first');
-            return;
+        return false;
         }
 
         setIsSaving(true);
@@ -45,23 +200,35 @@ export default function TECAssessmentForm() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     email,
-                    formData
+                  formData,
+                  status,
                 })
             });
 
             if (response.ok) {
-                localStorage.setItem('tecFormEmail', email);
-                setSaveStatus('Form saved successfully');
-                setTimeout(() => setSaveStatus(''), 2000);
+                if (status === 'submitted') {
+                  localStorage.removeItem('tecFormEmail');
+                  setSaveStatus('Form submitted successfully');
+                  if (redirectToThankYou) {
+                    router.push('/thank-you');
+                  }
+                } else {
+                  localStorage.setItem('tecFormEmail', email);
+                  setSaveStatus('Form saved successfully');
+                  setTimeout(() => setSaveStatus(''), 2000);
+                }
+                return true;
             } else {
-                setSaveStatus('Error saving form');
+                setSaveStatus(status === 'submitted' ? 'Error submitting form' : 'Error saving form');
             }
         } catch (error) {
             console.error('Error saving form:', error);
-            setSaveStatus('Error saving form');
+              setSaveStatus(status === 'submitted' ? 'Error submitting form' : 'Error saving form');
         } finally {
             setIsSaving(false);
         }
+
+            return false;
     };
 
     // Update form field
@@ -74,8 +241,12 @@ export default function TECAssessmentForm() {
 
     const nextStep = () => {
         if (currentStep < totalSteps) {
-            setCurrentStep(currentStep + 1);
-            saveFormData();
+            if (formData.reviewingDepartment === 'MITS' && currentStep === reviewingDepartmentStepMap['MITS']) {
+                submitForm();
+            } else {
+                setCurrentStep(currentStep + 1);
+                saveFormData();
+            }
         }
     };
 
@@ -83,6 +254,37 @@ export default function TECAssessmentForm() {
         if (currentStep > 1) {
             setCurrentStep(currentStep - 1);
         }
+    };
+
+    const submitForm = async () => {
+      await saveFormData({ status: 'submitted', redirectToThankYou: true });
+    };
+
+    const exportAsPdf = async () => {
+      setIsExportingPdf(true);
+
+      try {
+        const saved = await saveFormData();
+
+        if (!saved) {
+          return;
+        }
+
+        const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700');
+
+        if (!printWindow) {
+          setSaveStatus('Unable to open PDF preview. Please allow pop-ups and try again.');
+          return;
+        }
+
+        printWindow.document.open();
+        printWindow.document.write(buildExportMarkup());
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+      } finally {
+        setIsExportingPdf(false);
+      }
     };
 
     const renderSection = () => {
@@ -157,6 +359,22 @@ export default function TECAssessmentForm() {
                 <section className="bg-white p-6 rounded-lg shadow">
                   <div>
                     <label className="block mb-1">
+                      Contact Telephone: <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={formData.contactTelephone || ''}
+                      onChange={(e) => updateField('contactTelephone', e.target.value)}
+                      placeholder="Contact Telephone"
+                      className="w-full p-2 border rounded"
+                    />
+                  </div>
+                </section>
+
+                <section className="bg-white p-6 rounded-lg shadow">
+                  <div>
+                    <label className="block mb-1">
                       DATE <span className="text-red-500">*</span>
                     </label>
                     <input 
@@ -180,11 +398,25 @@ export default function TECAssessmentForm() {
                             name="title" 
                             value={title}
                             checked={formData.title === title}
-                            onChange={(e) => updateField('title', e.target.value)}
+                            onChange={(e) => {
+                              updateField('title', e.target.value);
+                              setOtherSelection('title', e.target.value === 'Other');
+                            }}
                           />
                           <span>{title}</span>
                         </label>
                       ))}
+                      {formData.title === 'Other' && (
+                        <div className="mt-3">
+                          <input
+                            type="text"
+                            value={formData.titleOther || ''}
+                            onChange={(e) => updateField('titleOther', e.target.value)}
+                            placeholder="Enter title"
+                            className="w-full p-2 border rounded"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </section>
@@ -198,7 +430,10 @@ export default function TECAssessmentForm() {
                       <select 
                         required
                         value={formData.projectType || ''}
-                        onChange={(e) => updateField('projectType', e.target.value)}
+                        onChange={(e) => {
+                          updateField('projectType', e.target.value);
+                          setOtherSelection('projectType', e.target.value === 'other');
+                        }}
                         className="w-full p-2 border rounded"
                       >
                         <option value="">Select a project type</option>
@@ -210,6 +445,17 @@ export default function TECAssessmentForm() {
                         <option value="infrastructure">Infrastructure Upgrade</option>
                         <option value="other">Other</option>
                       </select>
+                      {formData.projectType === 'other' && (
+                        <div className="mt-3">
+                          <input
+                            type="text"
+                            value={formData.projectTypeOther || ''}
+                            onChange={(e) => updateField('projectTypeOther', e.target.value)}
+                            placeholder="Enter project type"
+                            className="w-full p-2 border rounded"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </section>
@@ -234,20 +480,64 @@ export default function TECAssessmentForm() {
                           'Tender Committee',
                           'Board of the Applicant',
                           'Other'
-                        ].map((row) => (
-                          <tr key={row}>
-                              <td className="p-2">{row}</td>
-                              <td className="text-center p-2">
-                                  <input type="checkbox" className="h-4 w-4"/>
-                              </td>
-                              <td className="text-center p-2">
-                                  <input type="checkbox" className="h-4 w-4"/>
-                              </td>
-                              <td className="text-center p-2">
-                                  <input type="checkbox" className="h-4 w-4"/>
-                              </td>
-                          </tr>
-                        ))}
+                        ].flatMap((row) => {
+                          const rows = [
+                            <tr key={row}>
+                                <td className="p-2">{row}</td>
+                                <td className="text-center p-2">
+                                    <input
+                                      type="checkbox"
+                                      className="h-4 w-4"
+                                      onChange={(e) => {
+                                        if (row === 'Other') {
+                                          setOtherSelection('approvalsRecommendations', e.target.checked, 'stage1');
+                                        }
+                                      }}
+                                    />
+                                </td>
+                                <td className="text-center p-2">
+                                    <input
+                                      type="checkbox"
+                                      className="h-4 w-4"
+                                      onChange={(e) => {
+                                        if (row === 'Other') {
+                                          setOtherSelection('approvalsRecommendations', e.target.checked, 'stage2');
+                                        }
+                                      }}
+                                    />
+                                </td>
+                                <td className="text-center p-2">
+                                    <input
+                                      type="checkbox"
+                                      className="h-4 w-4"
+                                      onChange={(e) => {
+                                        if (row === 'Other') {
+                                          setOtherSelection('approvalsRecommendations', e.target.checked, 'stage3');
+                                        }
+                                      }}
+                                    />
+                                </td>
+                            </tr>
+                          ];
+
+                          if (row === 'Other' && isOtherSelected('approvalsRecommendations')) {
+                            rows.push(
+                              <tr key={`${row}-details`}>
+                                <td colSpan={4} className="p-2">
+                                  <input
+                                    type="text"
+                                    value={formData.approvalsRecommendationsOther || ''}
+                                    onChange={(e) => updateField('approvalsRecommendationsOther', e.target.value)}
+                                    placeholder="Enter other approval or recommendation"
+                                    className="w-full p-2 border rounded"
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          return rows;
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -374,11 +664,17 @@ export default function TECAssessmentForm() {
                         type="checkbox" 
                         name="utilities" 
                         value={utility}
+                        onChange={(e) => {
+                          if (utility === 'Other') {
+                            setOtherSelection('utilities', e.target.checked);
+                          }
+                        }}
                         className="h-5 w-5 border-gray-300 rounded"
                       />
                       <span className="text-gray-700">{utility}</span>
                     </label>
                   ))}
+                  {renderOtherTextInput('utilities', 'Enter other utility')}
                 </div>
               </section>
               
@@ -420,11 +716,17 @@ export default function TECAssessmentForm() {
                         type="checkbox" 
                         name="electrical_mechanical" 
                         value={item}
+                        onChange={(e) => {
+                          if (item === 'Other') {
+                            setOtherSelection('electricalMechanical', e.target.checked);
+                          }
+                        }}
                         className="h-5 w-5 border-gray-300 rounded"
                       />
                       <span className="text-gray-700">{item}</span>
                     </label>
                   ))}
+                  {renderOtherTextInput('electricalMechanical', 'Enter other electrical or mechanical item')}
                 </div>
               </section>
 
@@ -445,11 +747,17 @@ export default function TECAssessmentForm() {
                         type="checkbox" 
                         name="fire_detection" 
                         value={item}
+                        onChange={(e) => {
+                          if (item === 'Other') {
+                            setOtherSelection('fireDetection', e.target.checked);
+                          }
+                        }}
                         className="h-5 w-5 border-gray-300 rounded"
                       />
                       <span className="text-gray-700">{item}</span>
                     </label>
                   ))}
+                  {renderOtherTextInput('fireDetection', 'Enter other fire detection or suppression system')}
                 </div>
               </section>
 
@@ -469,11 +777,17 @@ export default function TECAssessmentForm() {
                         type="checkbox" 
                         name="infrastructure" 
                         value={item}
+                        onChange={(e) => {
+                          if (item === 'Other') {
+                            setOtherSelection('infrastructure', e.target.checked);
+                          }
+                        }}
                         className="h-5 w-5 border-gray-300 rounded"
                       />
                       <span className="text-gray-700">{item}</span>
                     </label>
                   ))}
+                  {renderOtherTextInput('infrastructure', 'Enter other infrastructure item')}
                 </div>
               </section>
 
@@ -494,7 +808,7 @@ export default function TECAssessmentForm() {
               
             </section>
           );
-        case 4:
+        case 5:
           return (
             <div>
               <section className="bg-white p-6 rounded-lg shadow">
@@ -656,7 +970,7 @@ export default function TECAssessmentForm() {
             </section>
           </div>
           );
-        case 5:
+        case 4:
           return (
             <div>
               <section className="bg-white p-6 rounded-lg shadow">
@@ -697,6 +1011,8 @@ export default function TECAssessmentForm() {
                         name="reviewing_department" 
                         value={dept}
                         required
+                        checked={formData.reviewingDepartment === dept}
+                        onChange={(e) => handleReviewingDepartmentChange(e.target.value)}
                         className="h-5 w-5 border-gray-300"
                       />
                       <span className="text-gray-700">{dept}</span>
@@ -1889,11 +2205,13 @@ export default function TECAssessmentForm() {
                         name="partner-type"
                         value={option.toLowerCase()}
                         required
+                        onChange={(e) => setOtherSelection('partnerType', e.target.value.includes('other'))}
                         className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                       />
                       <span>{option}</span>
                     </label>
                   ))}
+                  {renderOtherTextInput('partnerType', 'Enter partner type')}
                 </div>
               </section>
 
@@ -1927,11 +2245,13 @@ export default function TECAssessmentForm() {
                         name="agreement-type"
                         value={option.toLowerCase()}
                         required
+                        onChange={(e) => setOtherSelection('agreementTypePlanning', e.target.value.includes('other'))}
                         className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                       />
                       <span>{option}</span>
                     </label>
                   ))}
+                  {renderOtherTextInput('agreementTypePlanning', 'Enter agreement type')}
                 </div>
               </section>
 
@@ -1989,11 +2309,13 @@ export default function TECAssessmentForm() {
                         type="radio"
                         name="project-source"
                         value={option.toLowerCase()}
+                        onChange={(e) => setOtherSelection('projectSource', e.target.value.includes('other'))}
                         className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                       />
                       <span>{option}</span>
                     </label>
                   ))}
+                  {renderOtherTextInput('projectSource', 'Enter project source')}
                 </div>
               </section>
 
@@ -2136,11 +2458,13 @@ export default function TECAssessmentForm() {
                         name="agreement-type"
                         value={option.toLowerCase()}
                         required
+                        onChange={(e) => setOtherSelection('agreementTypeClo', e.target.value.includes('other'))}
                         className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                       />
                       <span>{option}</span>
                     </label>
                   ))}
+                  {renderOtherTextInput('agreementTypeClo', 'Enter agreement type')}
                 </div>
               </section>
 
@@ -2279,7 +2603,17 @@ export default function TECAssessmentForm() {
 
     return (
       <div className="max-w-4xl mx-auto p-4 space-y-6">
-        <h1 className="text-2xl font-bold">TEC PROPOSAL ASSESSMENT FORM</h1>
+        <div className="flex items-center gap-4">
+          <Image
+            src="/uwi-logo.png"
+            alt="The University of the West Indies logo"
+            width={56}
+            height={56}
+            priority
+            className="h-14 w-14 object-contain"
+          />
+          <h1 className="text-2xl font-bold">TEC PROPOSAL ASSESSMENT FORM</h1>
+        </div>
         
         {/* Progress indicator */}
         <div className="flex justify-between items-center mb-4">
@@ -2316,10 +2650,21 @@ export default function TECAssessmentForm() {
             >
               {isSaving ? 'Saving...' : 'Save'}
             </button>
+
+            {currentStep === totalSteps && (
+              <button
+                type="button"
+                onClick={exportAsPdf}
+                disabled={isSaving || isExportingPdf}
+                className="bg-slate-700 text-white py-2 px-4 rounded hover:bg-slate-800 disabled:bg-gray-400"
+              >
+                {isExportingPdf ? 'Preparing PDF...' : 'Export PDF'}
+              </button>
+            )}
             
             <button
               type="button"
-              onClick={currentStep === totalSteps ? saveFormData : nextStep}
+              onClick={currentStep === totalSteps ? submitForm : nextStep}
               className={`${currentStep === 1 ? 'ml-auto' : ''} bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600`}
             >
               {currentStep === totalSteps ? 'Submit & Save' : 'Next'}
