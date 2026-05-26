@@ -5,6 +5,12 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --tec-surface: #efeeea;
+  --tec-card: #ffffff;
+  --tec-border: #d9d5cd;
+  --tec-heading: #1f2a44;
+  --tec-muted: #68748b;
+  --tec-primary: #991b1e;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -16,6 +22,55 @@
 
 body {
   color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(circle at 12% 6%, #faf8f4 0%, rgba(250, 248, 244, 0) 28%),
+    radial-gradient(circle at 88% 2%, #f3efea 0%, rgba(243, 239, 234, 0) 26%),
+    var(--tec-surface);
+  font-family: var(--font-geist-sans), "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.tec-content-wrap h2,
+.tec-content-wrap h3 {
+  color: var(--tec-heading);
+}
+
+.tec-form > div > section,
+.tec-form > section {
+  border: 1px solid var(--tec-border);
+  border-radius: 1rem;
+  box-shadow: 0 4px 18px rgba(24, 39, 75, 0.06);
+}
+
+.tec-form label {
+  color: #35415d;
+  font-weight: 500;
+}
+
+.tec-form input[type="text"],
+.tec-form input[type="email"],
+.tec-form input[type="number"],
+.tec-form input[type="date"],
+.tec-form select,
+.tec-form textarea {
+  border: 1px solid #d2ccc2;
+  border-radius: 0.65rem;
+  background: #fff;
+  color: #1f2a44;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tec-form input[type="text"]:focus,
+.tec-form input[type="email"]:focus,
+.tec-form input[type="number"]:focus,
+.tec-form input[type="date"]:focus,
+.tec-form select:focus,
+.tec-form textarea:focus {
+  border-color: var(--tec-primary);
+  box-shadow: 0 0 0 3px rgba(153, 27, 30, 0.15);
+  outline: none;
+}
+
+.tec-form input[type="radio"],
+.tec-form input[type="checkbox"] {
+  accent-color: var(--tec-primary);
 }

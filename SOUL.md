@@ -171,6 +171,7 @@ PostgreSQL Database
 - **Next.js** 15.1.7 — React framework with file-based routing
 - **React** 19.0.0-rc — UI library with hooks for state management
 - **Tailwind CSS** 3.4.1 — Utility-first CSS framework for styling
+- **Lucide Icons** (`lucide-react`) — Standard icon set for UI actions and navigation
 - **shadcn/ui** 0.0.4 — Headless UI component library (minimal use in current implementation)
 
 ### Backend
@@ -398,6 +399,7 @@ Currently no test suite exists. Future tests should cover:
 - Use ESLint Next.js config as guide
 - Prefer functional components with hooks
 - Use Tailwind utility classes; avoid custom CSS when possible
+- Use **Lucide** icons consistently for actions/navigation; avoid mixing icon sets
 - Keep function names descriptive (saveFormData, not save)
 
 ### Debugging

@@ -2,6 +2,7 @@
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { ChevronLeft, ChevronRight, FileDown, Save, Send } from 'lucide-react';
 
 export default function TECAssessmentForm() {
   const router = useRouter();
@@ -2732,52 +2733,66 @@ export default function TECAssessmentForm() {
     };
 
     return (
-      <div className="max-w-4xl mx-auto p-4 space-y-6">
-        <div className="flex items-center gap-4">
-          <Image
-            src="/uwi-logo.png"
-            alt="The University of the West Indies logo"
-            width={56}
-            height={56}
-            priority
-            className="h-14 w-14 object-contain"
-          />
-          <h1 className="text-2xl font-bold">TEC PROPOSAL ASSESSMENT FORM</h1>
-        </div>
-        
-        {/* Progress indicator */}
-        <div className="flex justify-between items-center mb-4">
-          <div className="text-sm text-gray-600">
-            Step {currentStep} of {totalSteps}
+      <div className="tec-content-wrap mx-auto max-w-[1120px] space-y-6">
+        <div className="rounded-2xl border border-[#d9d5cd] bg-white px-5 py-4 shadow-[0_6px_24px_rgba(24,39,75,0.08)] sm:px-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="rounded-xl border border-[#ddd8d1] bg-[#f8f6f3] p-2">
+                <Image
+                  src="/uwi-logo.png"
+                  alt="The University of the West Indies logo"
+                  width={48}
+                  height={48}
+                  priority
+                  className="h-12 w-12 object-contain"
+                />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#9a2a25]">Audit Workspace</p>
+                <h1 className="text-xl font-bold text-[#1f2a44] sm:text-2xl">TEC Proposal Assessment Form</h1>
+              </div>
+            </div>
+            <div className="rounded-xl border border-[#ddd8d1] bg-[#f6f4f1] px-4 py-3 text-sm text-[#58647a]">
+              <span className="font-semibold text-[#2a3550]">Step {currentStep}</span> of {totalSteps}
+            </div>
           </div>
-          <div className="w-2/3 h-2 bg-gray-200 rounded-full">
-            <div 
-              className="h-full bg-blue-500 rounded-full transition-all duration-300"
-              style={{ width: `${(currentStep / totalSteps) * 100}%` }}
-            ></div>
+
+          {/* Progress indicator */}
+          <div className="mt-4 flex items-center gap-4">
+            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#e5e2db]">
+              <div
+                className="h-full rounded-full bg-[#991b1e] transition-all duration-300"
+                style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+              ></div>
+            </div>
+            <div className="text-xs font-semibold text-[#6a7388]">
+              {Math.round((currentStep / totalSteps) * 100)}% complete
+            </div>
           </div>
         </div>
-        
-        <form className="space-y-6" onSubmit={(e) => e.preventDefault()} onChange={handleDepartmentFieldChange}>
+
+        <form className="tec-form space-y-6" onSubmit={(e) => e.preventDefault()} onChange={handleDepartmentFieldChange}>
           {renderSection()}
-          
-          <div className="flex justify-between mt-6 gap-4">
+
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#d9d5cd] bg-white px-4 py-4 shadow-[0_4px_18px_rgba(24,39,75,0.06)]">
             {currentStep > 1 && (
               <button
                 type="button"
                 onClick={prevStep}
-                className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
+                className="inline-flex items-center gap-2 rounded-xl border border-[#c8c2b8] bg-white px-4 py-2.5 text-sm font-semibold text-[#2f3a54] transition hover:border-[#9a2a25] hover:text-[#9a2a25]"
               >
+                <ChevronLeft className="h-4 w-4" />
                 Previous
               </button>
             )}
-            
+
             <button
               type="button"
               onClick={saveFormData}
               disabled={isSaving}
-              className="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 disabled:bg-gray-400"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#d6d2ca] bg-[#f4f2ef] px-4 py-2.5 text-sm font-semibold text-[#2f3a54] transition hover:border-[#9a2a25] hover:text-[#9a2a25] disabled:cursor-not-allowed disabled:opacity-60"
             >
+              <Save className="h-4 w-4" />
               {isSaving ? 'Saving...' : 'Save'}
             </button>
 
@@ -2786,35 +2801,38 @@ export default function TECAssessmentForm() {
                 type="button"
                 onClick={exportAsPdf}
                 disabled={isSaving || isExportingPdf}
-                className="bg-slate-700 text-white py-2 px-4 rounded hover:bg-slate-800 disabled:bg-gray-400"
+                className="inline-flex items-center gap-2 rounded-xl border border-[#d6d2ca] bg-white px-4 py-2.5 text-sm font-semibold text-[#2f3a54] transition hover:border-[#9a2a25] hover:text-[#9a2a25] disabled:cursor-not-allowed disabled:opacity-60"
               >
+                <FileDown className="h-4 w-4" />
                 {isExportingPdf ? 'Preparing PDF...' : 'Export PDF'}
               </button>
             )}
-            
+
             {/* Show 'Next' only on steps 1–5; show 'Submit & Save' on department/Secretariat steps (6–17) */}
             {currentStep <= 5 && (
               <button
                 type="button"
                 onClick={nextStep}
-                className={`${currentStep === 1 ? 'ml-auto' : ''} bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600`}
+                className={`${currentStep === 1 ? 'ml-auto' : ''} inline-flex items-center gap-2 rounded-xl bg-[#991b1e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#7f1719]`}
               >
                 Next
+                <ChevronRight className="h-4 w-4" />
               </button>
             )}
             {currentStep >= 6 && currentStep <= totalSteps && (
               <button
                 type="button"
                 onClick={submitForm}
-                className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#991b1e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#7f1719]"
               >
+                <Send className="h-4 w-4" />
                 Submit & Save
               </button>
             )}
           </div>
 
           {saveStatus && (
-            <div className={`p-3 rounded ${saveStatus.includes('successfully') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+            <div className={`rounded-xl border p-3 text-sm font-medium ${saveStatus.includes('successfully') ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
               {saveStatus}
             </div>
           )}
