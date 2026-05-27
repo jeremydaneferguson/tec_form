@@ -2738,17 +2738,17 @@ export default function TECAssessmentForm() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <div className="rounded-xl border border-[#ddd8d1] bg-[#f8f6f3] p-2">
-                <Image
+                {/* <Image
                   src="/uwi-logo.png"
                   alt="The University of the West Indies logo"
                   width={48}
                   height={48}
                   priority
-                  className="h-12 w-12 object-contain"
-                />
+                  className="h-12 w-auto object-contain"
+                /> */}
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#9a2a25]">Audit Workspace</p>
+                {/* <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#9a2a25]">Audit Workspace</p> */}
                 <h1 className="text-xl font-bold text-[#1f2a44] sm:text-2xl">TEC Proposal Assessment Form</h1>
               </div>
             </div>
@@ -2826,7 +2826,7 @@ export default function TECAssessmentForm() {
                 className="inline-flex items-center gap-2 rounded-xl bg-[#991b1e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#7f1719]"
               >
                 <Send className="h-4 w-4" />
-                Submit & Save
+                 Save & Submit
               </button>
             )}
           </div>
