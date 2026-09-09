@@ -10,7 +10,7 @@ export default function ProjectsPage() {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await fetch('/api/projects');
+        const response = await fetch('/tec/api/projects');
         if (response.ok) {
           const data = await response.json();
           setProjects(data);

@@ -186,7 +186,7 @@ export default function TECAssessmentForm() {
             if (savedEmail) {
                 setEmail(savedEmail);
                 try {
-                    const response = await fetch(`/api/submissions?email=${encodeURIComponent(savedEmail)}`);
+                    const response = await fetch(`/tec/api/submissions?email=${encodeURIComponent(savedEmail)}`);
                     if (response.ok) {
                         const submission = await response.json();
                         setFormData(submission.formData || {});
@@ -210,7 +210,7 @@ export default function TECAssessmentForm() {
 
         setIsSaving(true);
         try {
-            const response = await fetch('/api/submissions', {
+            const response = await fetch('/tec/api/submissions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

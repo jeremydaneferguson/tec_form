@@ -25,7 +25,7 @@ export default function UserManagementPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/users", { cache: "no-store" });
+      const res = await fetch("/tec/api/users", { cache: "no-store" });
       if (res.ok) {
         setUsers(await res.json());
         setError("");
@@ -56,7 +56,7 @@ export default function UserManagementPage() {
     setCreating(true);
     setCreateError("");
     try {
-      const res = await fetch("/api/users", {
+      const res = await fetch("/tec/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -84,7 +84,7 @@ export default function UserManagementPage() {
   const handleUserUpdate = async (id, updates) => {
     try {
       setUpdatingUserId(id);
-      const res = await fetch("/api/users", {
+      const res = await fetch("/tec/api/users", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, ...updates }),

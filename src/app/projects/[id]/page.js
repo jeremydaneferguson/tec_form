@@ -61,7 +61,7 @@ export default function ProjectDetailsPage() {
 
     const loadProject = async () => {
       try {
-        const response = await fetch(`/api/projects/${projectId}`, { cache: 'no-store' });
+        const response = await fetch(`/tec/api/projects/${projectId}`, { cache: 'no-store' });
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
           setError(payload.error || 'Failed to load project details');
