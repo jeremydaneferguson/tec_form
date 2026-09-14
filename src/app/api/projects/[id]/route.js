@@ -42,3 +42,32 @@ export async function GET(_request, { params }) {
     );
   }
 }
+
+export async function DELETE(_request, { params }) {
+  try {
+    const { id } = await params;
+
+    if (!id) {
+      return Response.json({ error: 'Project id is required' }, { status: 400 });
+    }
+
+    const submission = await prisma.tECSubmission.findUnique({
+      where: { id },
+    });
+
+    if (!submission) {
+      return Response.json({ error: 'Project not found' }, { status: 404 });
+    }
+
+    await prisma.tECSubmission.delete({
+      where: { id },
+    });
+
+    return Response.json({ message: 'Project deleted successfully' }, { status: 200 });
+  } catch (error) {
+    return Response.json(
+      { error: `Failed to delete project: ${error.message}` },
+      { status: 500 }
+    );
+  }
+}
