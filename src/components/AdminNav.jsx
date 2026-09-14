@@ -8,13 +8,13 @@ import {
   LayoutGrid,
   LogOut,
   FolderKanban,
-  Users,
+  ShieldCheck,
 } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "TEC Form", icon: LayoutGrid },
   { href: "/projects", label: "Projects", icon: FolderKanban },
-  { href: "/users", label: "Users", icon: Users },
+  { href: "/admin", label: "Admin", icon: ShieldCheck },
 ];
 
 export default function AdminNav({ children, currentUser = "Admin" }) {

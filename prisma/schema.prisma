@@ -4,6 +4,23 @@ model User {
   role       String   @default("requestor") // requestor, approver, admin
   department String?  @db.VarChar(255)
 }
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique @db.VarChar(255)
+  code        String?  @unique @db.VarChar(100)
+  description String?  @db.VarChar(500)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
