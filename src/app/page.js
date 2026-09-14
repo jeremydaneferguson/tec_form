@@ -1,6 +1,11 @@
 import Image from "next/image";
-import TECAssessmentForm from '@/components/TECAssessmentForm'
+import TECAssessmentForm from '@/components/TECAssessmentForm';
+import LoginGate from '@/components/LoginGate';
 
 export default function Home() {
-  return <TECAssessmentForm />
+  return (
+    <LoginGate>
+      <TECAssessmentForm />
+    </LoginGate>
+  );
 }

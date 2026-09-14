@@ -201,10 +201,35 @@ export default function TECAssessmentForm() {
         loadFormData();
     }, []);
 
+    const getMissingRequiredFields = () => {
+        const missing = [];
+
+        if (!email || !String(email).trim()) {
+            missing.push('Email');
+        }
+
+        if (!formData.reviewingDepartment || !String(formData.reviewingDepartment).trim()) {
+            missing.push('Reviewing Department');
+        }
+
+        return missing;
+    };
+
+    const validateRequiredFields = (actionLabel = 'submit') => {
+        const missing = getMissingRequiredFields();
+
+        if (missing.length > 0) {
+            const message = `Please complete the required field${missing.length > 1 ? 's' : ''} before ${actionLabel}: ${missing.join(', ')}.`;
+            setSaveStatus(message);
+            return false;
+        }
+
+        return true;
+    };
+
     // Save form data to database
     const saveFormData = async ({ status = 'draft', redirectToThankYou = false } = {}) => {
-        if (!email) {
-            setSaveStatus('Please enter your email first');
+        if (!validateRequiredFields(status === 'submitted' ? 'submitting the form' : 'saving the form')) {
         return false;
         }
 
@@ -322,6 +347,10 @@ export default function TECAssessmentForm() {
 
     const nextStep = () => {
         if (currentStep < totalSteps) {
+            if (!validateRequiredFields('continuing')) {
+                return;
+            }
+
             if (formData.reviewingDepartment === 'MITS' && currentStep === reviewingDepartmentStepMap['MITS']) {
                 submitForm();
             } else {
@@ -343,6 +372,10 @@ export default function TECAssessmentForm() {
     };
 
     const submitForm = async () => {
+      if (!validateRequiredFields('submitting the form')) {
+        return;
+      }
+
       await saveFormData({ status: 'submitted', redirectToThankYou: true });
     };
 
