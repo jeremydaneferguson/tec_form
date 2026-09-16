@@ -597,7 +597,13 @@ export default function AdminPage() {
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8d98ab]" />
           <input
-            type="text"
+            type="search"
+            name="tec-admin-directory-search"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            aria-label={`Search ${activeTab}`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder={`Search ${activeTab}...`}
