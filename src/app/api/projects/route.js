@@ -6,16 +6,26 @@ export async function GET(req) {
   try {
     // Fetch all submissions as projects
     const submissions = await prisma.tECSubmission.findMany({
-      orderBy: { createdAt: 'desc' },
+      orderBy: { updatedAt: 'desc' },
     });
 
     // Map to project-like objects
-    const projects = submissions.map((submission) => ({
-      id: submission.id,
-      name: submission.formData?.projectName || submission.email,
-      description: submission.formData?.projectType || '',
-      createdAt: submission.createdAt,
-    }));
+    const projects = submissions.map((submission) => {
+      const formData = submission.formData || {};
+
+      return {
+        id: submission.id,
+        name: formData.projectName || submission.email,
+        description: formData.projectType || '',
+        projectType: formData.projectType || 'Not specified',
+        client: formData.client || 'Not specified',
+        reviewingDepartment: formData.reviewingDepartment || 'Not selected',
+        contactName: formData.contactName || 'Not specified',
+        status: submission.status,
+        createdAt: submission.createdAt,
+        updatedAt: submission.updatedAt,
+      };
+    });
 
     return new Response(JSON.stringify(projects), {
       status: 200,

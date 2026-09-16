@@ -13,6 +13,8 @@ export default function TECAssessmentForm() {
   const [otherSelections, setOtherSelections] = useState({});
     const [saveStatus, setSaveStatus] = useState('');
     const [email, setEmail] = useState('');
+    const [submissionId, setSubmissionId] = useState('');
+    const [submissionStatus, setSubmissionStatus] = useState('draft');
     const totalSteps = 17;
 
     const reviewingDepartmentStepMap = {
@@ -182,6 +184,30 @@ export default function TECAssessmentForm() {
     // Load saved form data on mount
     useEffect(() => {
         const loadFormData = async () => {
+            const editSubmissionId = new URLSearchParams(window.location.search).get('editSubmissionId');
+            if (editSubmissionId) {
+                try {
+                    const response = await fetch(`/tec/api/submissions?id=${encodeURIComponent(editSubmissionId)}`, {
+                        cache: 'no-store',
+                    });
+                    if (response.ok) {
+                        const submission = await response.json();
+                        setSubmissionId(submission.id);
+                        setSubmissionStatus(submission.status || 'draft');
+                        setEmail(submission.email || '');
+                        setFormData(submission.formData || {});
+                        setSaveStatus('Editing existing submission');
+                        setTimeout(() => setSaveStatus(''), 2000);
+                    } else {
+                        setSaveStatus('Unable to load submission for editing');
+                    }
+                } catch (error) {
+                    console.error('Error loading submission for editing:', error);
+                    setSaveStatus('Error loading submission for editing');
+                }
+                return;
+            }
+
             const savedEmail = localStorage.getItem('tecFormEmail');
             if (savedEmail) {
                 setEmail(savedEmail);
@@ -189,6 +215,8 @@ export default function TECAssessmentForm() {
                     const response = await fetch(`/tec/api/submissions?email=${encodeURIComponent(savedEmail)}`);
                     if (response.ok) {
                         const submission = await response.json();
+                        setSubmissionId(submission.id || '');
+                        setSubmissionStatus(submission.status || 'draft');
                         setFormData(submission.formData || {});
                         setSaveStatus('Form loaded from database');
                         setTimeout(() => setSaveStatus(''), 2000);
@@ -228,8 +256,10 @@ export default function TECAssessmentForm() {
     };
 
     // Save form data to database
-    const saveFormData = async ({ status = 'draft', redirectToThankYou = false, validate = true } = {}) => {
-        if (validate && !validateRequiredFields(status === 'submitted' ? 'submitting the form' : 'saving the form')) {
+    const saveFormData = async ({ status, redirectToThankYou = false, validate = true } = {}) => {
+        const nextStatus = status || (submissionId ? submissionStatus : 'draft');
+
+        if (validate && !validateRequiredFields(nextStatus === 'submitted' && redirectToThankYou ? 'submitting the form' : 'saving the form')) {
         return false;
         }
 
@@ -239,13 +269,18 @@ export default function TECAssessmentForm() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    id: submissionId || undefined,
                     email,
                   formData,
-                  status,
+                  status: nextStatus,
                 })
             });
 
             if (response.ok) {
+                const submission = await response.json();
+                setSubmissionId(submission.id || submissionId);
+                setSubmissionStatus(submission.status || nextStatus);
+
                 if (status === 'submitted') {
                   localStorage.removeItem('tecFormEmail');
                   setSaveStatus('Form submitted successfully');
@@ -254,7 +289,7 @@ export default function TECAssessmentForm() {
                   }
                 } else {
                   localStorage.setItem('tecFormEmail', email);
-                  setSaveStatus('Form saved successfully');
+                  setSaveStatus(submissionId ? 'Form changes saved successfully' : 'Form saved successfully');
                   setTimeout(() => setSaveStatus(''), 2000);
                 }
                 return true;
