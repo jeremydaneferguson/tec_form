@@ -1,7 +1,8 @@
 "use client";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
   FileCheck,
@@ -19,7 +20,51 @@ const navItems = [
 
 export default function AdminNav({ children, currentUser = "Admin" }) {
   const pathname = usePathname();
-  const loggedInUser = currentUser;
+  const router = useRouter();
+  const [isReady, setIsReady] = useState(false);
+  const [loggedInUser, setLoggedInUser] = useState(currentUser);
+  const isLoginPage = pathname === "/login";
+
+  useEffect(() => {
+    if (isLoginPage) {
+      setIsReady(true);
+      return;
+    }
+
+    const loggedIn = localStorage.getItem("tecFormLoggedIn") === "true";
+
+    if (!loggedIn) {
+      router.replace("/login");
+      return;
+    }
+
+    const storedUser = localStorage.getItem("tecFormUser");
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        setLoggedInUser(user.email || currentUser);
+      } catch {
+        setLoggedInUser(currentUser);
+      }
+    }
+
+    setIsReady(true);
+  }, [currentUser, isLoginPage, router]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("tecFormLoggedIn");
+    localStorage.removeItem("tecFormUser");
+    localStorage.removeItem("tecFormEmail");
+    router.replace("/login");
+  };
+
+  if (isLoginPage) {
+    return children;
+  }
+
+  if (!isReady) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-[#efeeea] text-[#1f2a44]">
@@ -44,6 +89,7 @@ export default function AdminNav({ children, currentUser = "Admin" }) {
             </button>
             <button
               type="button"
+              onClick={handleLogout}
               className="inline-flex items-center gap-2 rounded-xl border border-[#d6d2ca] bg-white px-3 py-2 text-xs font-semibold text-[#2d3750] shadow-sm transition hover:border-[#9a2a25]"
             >
               <LogOut className="h-4 w-4" />

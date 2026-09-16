@@ -1,6 +1,7 @@
 model User {
   id         String   @id @default(cuid())
   email      String   @unique @db.VarChar(255)
+  passwordHash String @default("scrypt$16384$8$1$dGVjLWRlZmF1bHQtcGFzc3dvcmQtMjAyNi0wOQ==$LRK8msQSTYL60hb6+sfmZtP0lVV/bnxBaJNZVdCKE1p7NcSIdUEp+3KkB9KVktRtMwjtE9RyvhjKeHmFRfD7YA==") @db.VarChar(255)
   role       String   @default("requestor") // requestor, approver, admin
   department String?  @db.VarChar(255)
 }

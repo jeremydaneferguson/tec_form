@@ -201,22 +201,22 @@ export default function TECAssessmentForm() {
         loadFormData();
     }, []);
 
-    const getMissingRequiredFields = () => {
+    const getMissingRequiredFields = ({ requireReviewingDepartment = true } = {}) => {
         const missing = [];
 
         if (!email || !String(email).trim()) {
             missing.push('Email');
         }
 
-        if (!formData.reviewingDepartment || !String(formData.reviewingDepartment).trim()) {
+        if (requireReviewingDepartment && (!formData.reviewingDepartment || !String(formData.reviewingDepartment).trim())) {
             missing.push('Reviewing Department');
         }
 
         return missing;
     };
 
-    const validateRequiredFields = (actionLabel = 'submit') => {
-        const missing = getMissingRequiredFields();
+    const validateRequiredFields = (actionLabel = 'submit', options = {}) => {
+        const missing = getMissingRequiredFields(options);
 
         if (missing.length > 0) {
             const message = `Please complete the required field${missing.length > 1 ? 's' : ''} before ${actionLabel}: ${missing.join(', ')}.`;
@@ -228,8 +228,8 @@ export default function TECAssessmentForm() {
     };
 
     // Save form data to database
-    const saveFormData = async ({ status = 'draft', redirectToThankYou = false } = {}) => {
-        if (!validateRequiredFields(status === 'submitted' ? 'submitting the form' : 'saving the form')) {
+    const saveFormData = async ({ status = 'draft', redirectToThankYou = false, validate = true } = {}) => {
+        if (validate && !validateRequiredFields(status === 'submitted' ? 'submitting the form' : 'saving the form')) {
         return false;
         }
 
@@ -347,7 +347,9 @@ export default function TECAssessmentForm() {
 
     const nextStep = () => {
         if (currentStep < totalSteps) {
-            if (!validateRequiredFields('continuing')) {
+            const requireReviewingDepartment = currentStep >= 4;
+
+            if (!validateRequiredFields('continuing', { requireReviewingDepartment })) {
                 return;
             }
 
@@ -355,7 +357,7 @@ export default function TECAssessmentForm() {
                 submitForm();
             } else {
                 setCurrentStep(currentStep + 1);
-                saveFormData();
+                saveFormData({ validate: requireReviewingDepartment });
             }
         }
     };
