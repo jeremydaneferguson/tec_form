@@ -1,3 +1,4 @@
+import { hashPassword } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 export async function GET() {
@@ -55,7 +56,7 @@ export async function POST(request) {
 
 export async function PATCH(request) {
   try {
-    const { id, email, role, department } = await request.json();
+    const { id, email, role, department, password } = await request.json();
 
     const data = {};
 
@@ -81,6 +82,17 @@ export async function PATCH(request) {
         return Response.json({ error: 'Valid department is required' }, { status: 400 });
       }
       data.department = normalizedDepartment;
+    }
+
+    if (password !== undefined) {
+      const normalizedPassword = typeof password === 'string' ? password.trim() : '';
+      if (normalizedPassword.length < 8) {
+        return Response.json(
+          { error: 'Password must be at least 8 characters' },
+          { status: 400 }
+        );
+      }
+      data.passwordHash = await hashPassword(normalizedPassword);
     }
 
     if (!id || Object.keys(data).length === 0) {

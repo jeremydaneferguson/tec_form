@@ -11,6 +11,7 @@ import {
   Check,
   X,
   AlertCircle,
+  KeyRound,
   RefreshCw,
   Search,
   CheckCircle2,
@@ -43,6 +44,8 @@ export default function AdminPage() {
   // Create form states
   const [newUser, setNewUser] = useState({ email: "", role: "", department: "" });
   const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [passwordDrafts, setPasswordDrafts] = useState({});
+  const [updatingPasswordId, setUpdatingPasswordId] = useState(null);
 
   const [newDept, setNewDept] = useState({ name: "", code: "", description: "" });
   const [isCreatingDept, setIsCreatingDept] = useState(false);
@@ -185,6 +188,39 @@ export default function AdminPage() {
       }
     } catch {
       notify("error", "Network error updating user");
+    }
+  };
+
+  const handleUpdateUserPassword = async (user) => {
+    const password = passwordDrafts[user.id] || "";
+    if (password.trim().length < 8) {
+      notify("error", "Password must be at least 8 characters");
+      return;
+    }
+
+    setUpdatingPasswordId(user.id);
+    try {
+      const res = await fetch("/tec/api/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: user.id, password }),
+      });
+
+      if (res.ok) {
+        setPasswordDrafts((prev) => {
+          const next = { ...prev };
+          delete next[user.id];
+          return next;
+        });
+        notify("success", `Password updated for ${user.email}`);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        notify("error", err.error || "Failed to update password");
+      }
+    } catch {
+      notify("error", "Network error updating password");
+    } finally {
+      setUpdatingPasswordId(null);
     }
   };
 
@@ -667,6 +703,7 @@ export default function AdminPage() {
                       <th className="px-5 py-3">User Email</th>
                       <th className="px-5 py-3">Role</th>
                       <th className="px-5 py-3">Department</th>
+                      <th className="px-5 py-3">Password</th>
                       <th className="px-5 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -701,6 +738,32 @@ export default function AdminPage() {
                               </option>
                             ))}
                           </select>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <div className="flex min-w-[220px] items-center gap-2">
+                            <input
+                              type="password"
+                              value={passwordDrafts[user.id] || ""}
+                              onChange={(e) =>
+                                setPasswordDrafts((prev) => ({
+                                  ...prev,
+                                  [user.id]: e.target.value,
+                                }))
+                              }
+                              placeholder="New password"
+                              className="w-36 rounded-lg border border-[#d6d2ca] bg-[#faf8f5] px-2.5 py-1 text-xs text-[#1f2a44] focus:border-[#991b1e] focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateUserPassword(user)}
+                              disabled={updatingPasswordId === user.id}
+                              className="inline-flex items-center gap-1 rounded-lg border border-[#d6d2ca] bg-white px-2.5 py-1 text-xs font-semibold text-[#2d3750] transition hover:border-[#991b1e] hover:text-[#991b1e] disabled:cursor-not-allowed disabled:opacity-50"
+                              title="Update password"
+                            >
+                              <KeyRound className="h-3.5 w-3.5" />
+                              {updatingPasswordId === user.id ? "Saving" : "Update"}
+                            </button>
+                          </div>
                         </td>
                         <td className="px-5 py-3.5 text-right">
                           <button
