@@ -1,21 +1,27 @@
 "use client";
 import Image from 'next/image';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, FileDown, Save, Send } from 'lucide-react';
 
 export default function TECAssessmentForm() {
   const router = useRouter();
+    const formRef = useRef(null);
     const [currentStep, setCurrentStep] = useState(1);
     const [formData, setFormData] = useState({});
     const [isSaving, setIsSaving] = useState(false);
     const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [otherSelections, setOtherSelections] = useState({});
     const [saveStatus, setSaveStatus] = useState('');
+    const [validationErrors, setValidationErrors] = useState({});
     const [email, setEmail] = useState('');
     const [submissionId, setSubmissionId] = useState('');
     const [submissionStatus, setSubmissionStatus] = useState('draft');
     const totalSteps = 17;
+    const sharedWorkflowSteps = 5;
+    const displayedTotalSteps = sharedWorkflowSteps + 1;
+    const displayedCurrentStep = currentStep <= sharedWorkflowSteps ? currentStep : displayedTotalSteps;
+    const displayedProgress = Math.round((displayedCurrentStep / displayedTotalSteps) * 100);
 
     const reviewingDepartmentStepMap = {
       EMD: 6,
@@ -31,9 +37,22 @@ export default function TECAssessmentForm() {
       Secretariat: 17,
     };
 
+    const approvalRecommendationRows = [
+      'Finance & General Purpose',
+      'Grounds, Buildings & Premises',
+      'Technical & Environmental',
+      'Tender Committee',
+      'Board of the Applicant',
+      'Other',
+    ];
+
+    const approvalRecommendationStages = ['stage1', 'stage2', 'stage3'];
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const telephoneAllowedPattern = /^\+?[\d\s().-]+$/;
+
     const handleReviewingDepartmentChange = (department) => {
       updateField('reviewingDepartment', department);
-      setCurrentStep(reviewingDepartmentStepMap[department] || 5);
+      clearValidationError('reviewingDepartment');
     };
 
   const setOtherSelection = (fieldName, isSelected, nestedKey) => {
@@ -59,6 +78,18 @@ export default function TECAssessmentForm() {
     });
   };
 
+  const valueContainsOtherOption = (value) => {
+    if (Array.isArray(value)) {
+      return value.some((item) => String(item).toLowerCase().startsWith('other'));
+    }
+
+    if (typeof value === 'string') {
+      return value.toLowerCase().startsWith('other');
+    }
+
+    return false;
+  };
+
   const isOtherSelected = (fieldName) => {
     const selection = otherSelections[fieldName];
 
@@ -66,8 +97,32 @@ export default function TECAssessmentForm() {
       return Object.values(selection).some(Boolean);
     }
 
-    return Boolean(selection);
+    return Boolean(selection) || valueContainsOtherOption(formData[fieldName]);
   };
+
+  const updateApprovalRecommendation = (row, stage, isChecked) => {
+    setFormData((prev) => ({
+      ...prev,
+      approvalsRecommendations: {
+        ...(prev.approvalsRecommendations || {}),
+        [row]: {
+          ...(prev.approvalsRecommendations?.[row] || {}),
+          [stage]: isChecked,
+        },
+      },
+    }));
+
+    if (row === 'Other') {
+      setOtherSelection('approvalsRecommendations', isChecked, stage);
+    }
+  };
+
+  const isApprovalRecommendationChecked = (row, stage) =>
+    Boolean(formData.approvalsRecommendations?.[row]?.[stage]);
+
+  const hasOtherApprovalRecommendation = () =>
+    isOtherSelected('approvalsRecommendations') ||
+    Object.values(formData.approvalsRecommendations?.Other || {}).some(Boolean);
 
   const renderOtherTextInput = (fieldName, placeholder = 'Please specify') => {
     if (!isOtherSelected(fieldName)) {
@@ -229,37 +284,126 @@ export default function TECAssessmentForm() {
         loadFormData();
     }, []);
 
-    const getMissingRequiredFields = ({ requireReviewingDepartment = true } = {}) => {
-        const missing = [];
+    const fieldLabels = {
+      email: 'Email',
+      date: 'Date',
+      contactTelephone: 'Contact Telephone',
+      reviewingDepartment: 'Reviewing Department',
+    };
 
-        if (!email || !String(email).trim()) {
-            missing.push('Email');
+    const isValidEmail = (value) => emailPattern.test(String(value || '').trim());
+
+    const isValidTelephone = (value) => {
+      const normalizedValue = String(value || '').trim();
+      const digitCount = normalizedValue.replace(/\D/g, '').length;
+
+      return telephoneAllowedPattern.test(normalizedValue) && digitCount >= 7 && digitCount <= 15;
+    };
+
+    const isValidDateValue = (value) => {
+      const normalizedValue = String(value || '').trim();
+
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
+        return false;
+      }
+
+      const [year, month, day] = normalizedValue.split('-').map(Number);
+      const parsedDate = new Date(year, month - 1, day);
+
+      return parsedDate.getFullYear() === year &&
+        parsedDate.getMonth() === month - 1 &&
+        parsedDate.getDate() === day;
+    };
+
+    const isFutureDate = (value) => {
+      const [year, month, day] = String(value || '').split('-').map(Number);
+      const selectedDate = new Date(year, month - 1, day);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      return selectedDate > today;
+    };
+
+    const getFormValidationErrors = ({ requireReviewingDepartment = true } = {}) => {
+        const errors = {};
+        const trimmedEmail = String(email || '').trim();
+        const contactTelephone = String(formData.contactTelephone || '').trim();
+        const date = String(formData.date || '').trim();
+
+        if (!trimmedEmail) {
+            errors.email = 'Email is required.';
+        } else if (!isValidEmail(trimmedEmail)) {
+            errors.email = 'Enter a valid email address.';
+        }
+
+        if (!contactTelephone) {
+            errors.contactTelephone = 'Contact Telephone is required.';
+        } else if (!isValidTelephone(contactTelephone)) {
+            errors.contactTelephone = 'Enter a valid telephone number with 7 to 15 digits.';
+        }
+
+        if (!date) {
+            errors.date = 'Date is required.';
+        } else if (!isValidDateValue(date)) {
+            errors.date = 'Enter a valid date.';
+        } else if (isFutureDate(date)) {
+            errors.date = 'Date cannot be in the future.';
         }
 
         if (requireReviewingDepartment && (!formData.reviewingDepartment || !String(formData.reviewingDepartment).trim())) {
-            missing.push('Reviewing Department');
+            errors.reviewingDepartment = 'Reviewing Department is required.';
         }
 
-        return missing;
+        return errors;
+    };
+
+    const shouldRequireReviewingDepartment = (actionLabel, options = {}) => {
+      if (typeof options.requireReviewingDepartment === 'boolean') {
+        return options.requireReviewingDepartment;
+      }
+
+      return actionLabel.includes('submitting') || currentStep === 4 || currentStep === 5;
     };
 
     const validateRequiredFields = (actionLabel = 'submit', options = {}) => {
-        const missing = getMissingRequiredFields(options);
+        const validationOptions = {
+          ...options,
+          requireReviewingDepartment: shouldRequireReviewingDepartment(actionLabel, options),
+        };
+        const errors = getFormValidationErrors(validationOptions);
+        const invalidFields = Object.keys(errors);
+        setValidationErrors(errors);
 
-        if (missing.length > 0) {
-            const message = `Please complete the required field${missing.length > 1 ? 's' : ''} before ${actionLabel}: ${missing.join(', ')}.`;
+        if (invalidFields.length > 0) {
+            const fieldNames = invalidFields.map((fieldName) => fieldLabels[fieldName] || fieldName);
+            const message = `Please correct the highlighted field${invalidFields.length > 1 ? 's' : ''} before ${actionLabel}: ${fieldNames.join(', ')}.`;
             setSaveStatus(message);
             return false;
         }
 
+        setValidationErrors({});
         return true;
     };
 
-    // Save form data to database
-    const saveFormData = async ({ status, redirectToThankYou = false, validate = true } = {}) => {
-        const nextStatus = status || (submissionId ? submissionStatus : 'draft');
+    const clearValidationError = (fieldName) => {
+      setValidationErrors((prev) => {
+        if (!prev[fieldName]) {
+          return prev;
+        }
 
-        if (validate && !validateRequiredFields(nextStatus === 'submitted' && redirectToThankYou ? 'submitting the form' : 'saving the form')) {
+        const nextErrors = { ...prev };
+        delete nextErrors[fieldName];
+        return nextErrors;
+      });
+    };
+
+    // Save form data to database
+    const saveFormData = async ({ status, redirectToThankYou = false, validate = true, requireReviewingDepartment } = {}) => {
+        const nextStatus = status || (submissionId ? submissionStatus : 'draft');
+        const validationContext = nextStatus === 'submitted' && redirectToThankYou ? 'submitting the form' : 'saving the form';
+        const nextRequireReviewingDepartment = requireReviewingDepartment ?? nextStatus === 'submitted';
+
+        if (validate && !validateRequiredFields(validationContext, { requireReviewingDepartment: nextRequireReviewingDepartment })) {
         return false;
         }
 
@@ -270,7 +414,7 @@ export default function TECAssessmentForm() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     id: submissionId || undefined,
-                    email,
+                    email: email.trim(),
                   formData,
                   status: nextStatus,
                 })
@@ -288,7 +432,7 @@ export default function TECAssessmentForm() {
                     router.push('/thank-you');
                   }
                 } else {
-                  localStorage.setItem('tecFormEmail', email);
+                  localStorage.setItem('tecFormEmail', email.trim());
                   setSaveStatus(submissionId ? 'Form changes saved successfully' : 'Form saved successfully');
                   setTimeout(() => setSaveStatus(''), 2000);
                 }
@@ -314,6 +458,31 @@ export default function TECAssessmentForm() {
         }));
     };
 
+    const getFieldDefaultValue = (fieldName) => {
+      const value = formData[fieldName];
+
+      if (value === undefined || value === null || Array.isArray(value) || typeof value === 'object') {
+        return '';
+      }
+
+      return String(value);
+    };
+
+    const isFieldOptionSelected = (fieldName, optionValue) => {
+      const value = formData[fieldName];
+      const normalizedOption = String(optionValue);
+
+      if (Array.isArray(value)) {
+        return value.map((item) => String(item)).includes(normalizedOption);
+      }
+
+      if (typeof value === 'boolean') {
+        return value;
+      }
+
+      return value !== undefined && value !== null && String(value) === normalizedOption;
+    };
+
     const isDepartmentStep = currentStep >= 6 && currentStep <= totalSteps;
 
     const slugify = (value = '') => value
@@ -335,11 +504,27 @@ export default function TECAssessmentForm() {
       return `deptReview_${departmentSlug}_${fieldSlug}`;
     };
 
-    const handleDepartmentFieldChange = (event) => {
-      if (!isDepartmentStep) {
-        return;
+    const getDepartmentFieldDefaultValue = (rawFieldName) =>
+      getFieldDefaultValue(buildDepartmentReviewKey(rawFieldName));
+
+    const isDepartmentFieldOptionSelected = (rawFieldName, optionValue) =>
+      isFieldOptionSelected(buildDepartmentReviewKey(rawFieldName), optionValue);
+
+    const getElementStorageKey = (target, formElement) => {
+      const tagName = target?.tagName?.toLowerCase();
+      const formElements = Array.from(formElement.querySelectorAll('input, select, textarea'));
+      const elementIndex = formElements.indexOf(target) + 1;
+      const fallbackName = `field_${tagName}_${elementIndex}`;
+      const rawFieldName = target.name || target.id || target.getAttribute('data-field') || (isDepartmentStep ? fallbackName : '');
+
+      if (!rawFieldName) {
+        return '';
       }
 
+      return isDepartmentStep ? buildDepartmentReviewKey(rawFieldName) : rawFieldName;
+    };
+
+    const handleFormFieldChange = (event) => {
       const target = event.target;
       const tagName = target?.tagName?.toLowerCase();
 
@@ -351,24 +536,28 @@ export default function TECAssessmentForm() {
         return;
       }
 
+      if (target.dataset?.skipAutosave === 'true') {
+        return;
+      }
+
       if (target.type === 'radio' && !target.checked) {
         return;
       }
 
       const formElements = Array.from(event.currentTarget.querySelectorAll('input, select, textarea'));
-      const elementIndex = formElements.indexOf(target) + 1;
-
-      const fallbackName = `field_${tagName}_${elementIndex}`;
-      const rawFieldName = target.name || target.id || target.getAttribute('data-field') || fallbackName;
-      const storageKey = buildDepartmentReviewKey(rawFieldName);
+      const storageKey = getElementStorageKey(target, event.currentTarget);
 
       let value;
 
+      if (!storageKey) {
+        return;
+      }
+
       if (target.type === 'checkbox') {
         if (target.name) {
-          const checkedValues = Array.from(
-            event.currentTarget.querySelectorAll(`input[type="checkbox"][name="${target.name}"]:checked`)
-          ).map((input) => input.value || 'checked');
+          const checkedValues = formElements
+            .filter((input) => input.type === 'checkbox' && input.name === target.name && input.checked)
+            .map((input) => input.value || 'checked');
           value = checkedValues;
         } else {
           value = target.checked;
@@ -380,9 +569,63 @@ export default function TECAssessmentForm() {
       updateField(storageKey, value);
     };
 
+    useEffect(() => {
+      const formElement = formRef.current;
+
+      if (!formElement) {
+        return;
+      }
+
+      const formElements = Array.from(formElement.querySelectorAll('input, select, textarea'));
+
+      formElements.forEach((element) => {
+        const tagName = element?.tagName?.toLowerCase();
+
+        if (!['input', 'select', 'textarea'].includes(tagName)) {
+          return;
+        }
+
+        if (tagName === 'input' && ['button', 'submit', 'reset'].includes(element.type)) {
+          return;
+        }
+
+        if (element.dataset?.skipAutosave === 'true') {
+          return;
+        }
+
+        const storageKey = getElementStorageKey(element, formElement);
+
+        if (!storageKey || !Object.prototype.hasOwnProperty.call(formData, storageKey)) {
+          return;
+        }
+
+        const savedValue = formData[storageKey];
+
+        if (element.type === 'checkbox') {
+          if (element.name && Array.isArray(savedValue)) {
+            element.checked = savedValue.map((item) => String(item)).includes(String(element.value || 'checked'));
+          } else {
+            element.checked = Boolean(savedValue);
+          }
+          return;
+        }
+
+        if (element.type === 'radio') {
+          element.checked = String(savedValue) === String(element.value);
+          return;
+        }
+
+        if (savedValue === undefined || savedValue === null || Array.isArray(savedValue) || typeof savedValue === 'object') {
+          return;
+        }
+
+        element.value = String(savedValue);
+      });
+    }, [currentStep, formData]);
+
     const nextStep = () => {
         if (currentStep < totalSteps) {
-            const requireReviewingDepartment = currentStep >= 4;
+            const requireReviewingDepartment = currentStep === 4 || currentStep === 5;
 
             if (!validateRequiredFields('continuing', { requireReviewingDepartment })) {
                 return;
@@ -390,9 +633,12 @@ export default function TECAssessmentForm() {
 
             if (formData.reviewingDepartment === 'MITS' && currentStep === reviewingDepartmentStepMap['MITS']) {
                 submitForm();
+            } else if (currentStep === 5) {
+                setCurrentStep(reviewingDepartmentStepMap[formData.reviewingDepartment] || 6);
+                saveFormData({ validate: true, requireReviewingDepartment: true });
             } else {
                 setCurrentStep(currentStep + 1);
-                saveFormData({ validate: requireReviewingDepartment });
+                saveFormData({ validate: requireReviewingDepartment, requireReviewingDepartment });
             }
         }
     };
@@ -400,7 +646,7 @@ export default function TECAssessmentForm() {
     const prevStep = () => {
         if (currentStep > 1) {
         if (currentStep >= 6 && currentStep <= 17) {
-          setCurrentStep(4);
+          setCurrentStep(5);
           return;
         }
 
@@ -461,10 +707,22 @@ export default function TECAssessmentForm() {
                         type="email" 
                         required
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full p-2 border rounded"
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          clearValidationError('email');
+                        }}
+                        autoComplete="email"
+                        inputMode="email"
+                        aria-invalid={Boolean(validationErrors.email)}
+                        aria-describedby={validationErrors.email ? 'email-error' : undefined}
+                        className={`w-full p-2 border rounded ${validationErrors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                         placeholder="Valid email"
                       />
+                      {validationErrors.email && (
+                        <p id="email-error" className="mt-2 text-sm font-medium text-red-600">
+                          {validationErrors.email}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </section>
@@ -523,10 +781,23 @@ export default function TECAssessmentForm() {
                       type="tel"
                       required
                       value={formData.contactTelephone || ''}
-                      onChange={(e) => updateField('contactTelephone', e.target.value)}
+                      onChange={(e) => {
+                        updateField('contactTelephone', e.target.value);
+                        clearValidationError('contactTelephone');
+                      }}
+                      autoComplete="tel"
+                      inputMode="tel"
+                      pattern="^\+?[\d\s().-]+$"
+                      aria-invalid={Boolean(validationErrors.contactTelephone)}
+                      aria-describedby={validationErrors.contactTelephone ? 'contact-telephone-error' : undefined}
                       placeholder="Contact Telephone"
-                      className="w-full p-2 border rounded"
+                      className={`w-full p-2 border rounded ${validationErrors.contactTelephone ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                     />
+                    {validationErrors.contactTelephone && (
+                      <p id="contact-telephone-error" className="mt-2 text-sm font-medium text-red-600">
+                        {validationErrors.contactTelephone}
+                      </p>
+                    )}
                   </div>
                 </section>
 
@@ -539,9 +810,19 @@ export default function TECAssessmentForm() {
                       type="date"
                       required
                       value={formData.date || ''}
-                      onChange={(e) => updateField('date', e.target.value)}
-                      className="w-full p-2 border rounded"
+                      onChange={(e) => {
+                        updateField('date', e.target.value);
+                        clearValidationError('date');
+                      }}
+                      aria-invalid={Boolean(validationErrors.date)}
+                      aria-describedby={validationErrors.date ? 'date-error' : undefined}
+                      className={`w-full p-2 border rounded ${validationErrors.date ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                     />
+                    {validationErrors.date && (
+                      <p id="date-error" className="mt-2 text-sm font-medium text-red-600">
+                        {validationErrors.date}
+                      </p>
+                    )}
                   </div>
                 </section>
 
@@ -631,54 +912,26 @@ export default function TECAssessmentForm() {
                         </tr>
                       </thead>
                       <tbody>
-                        {[
-                          'Finance & General Purpose',
-                          'Grounds, Buildings & Premises',
-                          'Technical & Environmental',
-                          'Tender Committee',
-                          'Board of the Applicant',
-                          'Other'
-                        ].flatMap((row) => {
+                        {approvalRecommendationRows.flatMap((row) => {
                           const rows = [
                             <tr key={row}>
                                 <td className="p-2">{row}</td>
-                                <td className="text-center p-2">
-                                    <input
-                                      type="checkbox"
-                                      className="h-4 w-4"
-                                      onChange={(e) => {
-                                        if (row === 'Other') {
-                                          setOtherSelection('approvalsRecommendations', e.target.checked, 'stage1');
+                                {approvalRecommendationStages.map((stage) => (
+                                  <td key={`${row}-${stage}`} className="text-center p-2">
+                                      <input
+                                        type="checkbox"
+                                        className="h-4 w-4"
+                                        checked={isApprovalRecommendationChecked(row, stage)}
+                                        onChange={(e) =>
+                                          updateApprovalRecommendation(row, stage, e.target.checked)
                                         }
-                                      }}
-                                    />
-                                </td>
-                                <td className="text-center p-2">
-                                    <input
-                                      type="checkbox"
-                                      className="h-4 w-4"
-                                      onChange={(e) => {
-                                        if (row === 'Other') {
-                                          setOtherSelection('approvalsRecommendations', e.target.checked, 'stage2');
-                                        }
-                                      }}
-                                    />
-                                </td>
-                                <td className="text-center p-2">
-                                    <input
-                                      type="checkbox"
-                                      className="h-4 w-4"
-                                      onChange={(e) => {
-                                        if (row === 'Other') {
-                                          setOtherSelection('approvalsRecommendations', e.target.checked, 'stage3');
-                                        }
-                                      }}
-                                    />
-                                </td>
+                                      />
+                                  </td>
+                                ))}
                             </tr>
                           ];
 
-                          if (row === 'Other' && isOtherSelected('approvalsRecommendations')) {
+                          if (row === 'Other' && hasOtherApprovalRecommendation()) {
                             rows.push(
                               <tr key={`${row}-details`}>
                                 <td colSpan={4} className="p-2">
@@ -711,7 +964,9 @@ export default function TECAssessmentForm() {
                     <div>
                       <input 
                         type="text" 
+                        name="technicalDescription"
                         required
+                        defaultValue={getFieldDefaultValue('technicalDescription')}
                         className="w-full p-2 border rounded"
                         placeholder="Description (optional)"
                       />
@@ -727,7 +982,9 @@ export default function TECAssessmentForm() {
                     </label>
                     <input 
                       type="text" 
+                      name="locationMetrics"
                       required
+                      defaultValue={getFieldDefaultValue('locationMetrics')}
                       className="w-full p-2 border rounded"
                       placeholder="Description (optional)"
                     />
@@ -743,7 +1000,9 @@ export default function TECAssessmentForm() {
                     </label>
                     <input 
                       type="text" 
+                      name="preciseBuildingLocation"
                       required
+                      defaultValue={getFieldDefaultValue('preciseBuildingLocation')}
                       className="w-full p-2 border rounded"
                     />
                   </div>
@@ -758,7 +1017,9 @@ export default function TECAssessmentForm() {
                       </label>
                       <input 
                         type="text" 
+                        name="existingBuildingArea"
                         required
+                        defaultValue={getFieldDefaultValue('existingBuildingArea')}
                         className="w-full p-2 border rounded"
                       />
                     </div>
@@ -768,7 +1029,9 @@ export default function TECAssessmentForm() {
                     </label>
                     <input 
                       type="text" 
+                      name="proposedBuildingArea"
                       required
+                      defaultValue={getFieldDefaultValue('proposedBuildingArea')}
                       className="w-full p-2 border rounded"
                     />
                   </div>
@@ -783,7 +1046,9 @@ export default function TECAssessmentForm() {
                     </label>
                     <input 
                       type="text" 
+                      name="siteAnalysis"
                       required
+                      defaultValue={getFieldDefaultValue('siteAnalysis')}
                       className="w-full p-2 border rounded"
                       placeholder="Description (optional)"
                     />
@@ -798,7 +1063,9 @@ export default function TECAssessmentForm() {
                   </label>
                   <div>
                     <select 
+                      name="topography"
                       required
+                      defaultValue={getFieldDefaultValue('topography')}
                       className="w-full p-2 border rounded"
                     >
                       <option value="">Select a Topography</option>
@@ -817,7 +1084,12 @@ export default function TECAssessmentForm() {
                     Building functions:
                   </label>
                   <div>
-                    <select required className="w-full p-2 border rounded">
+                    <select
+                      name="buildingFunction"
+                      required
+                      defaultValue={getFieldDefaultValue('buildingFunction')}
+                      className="w-full p-2 border rounded"
+                    >
                       <option value="">Select a Building Function</option>
                       <option value="Academic">Academic</option>
                       <option value="Administrative">Administrative</option>
@@ -853,6 +1125,7 @@ export default function TECAssessmentForm() {
                         type="checkbox" 
                         name="utilities" 
                         value={utility}
+                        defaultChecked={isFieldOptionSelected('utilities', utility)}
                         onChange={(e) => {
                           if (utility === 'Other') {
                             setOtherSelection('utilities', e.target.checked);
@@ -874,7 +1147,9 @@ export default function TECAssessmentForm() {
                   </label>
                   <div>
                     <select 
+                      name="utilityChargesResponsibility"
                       required
+                      defaultValue={getFieldDefaultValue('utilityChargesResponsibility')}
                       className="w-full p-2 border rounded"
                     >
                       <option value="">Select</option>
@@ -903,8 +1178,9 @@ export default function TECAssessmentForm() {
                     <label key={item} className="flex items-center space-x-3">
                       <input 
                         type="checkbox" 
-                        name="electrical_mechanical" 
+                        name="electricalMechanical" 
                         value={item}
+                        defaultChecked={isFieldOptionSelected('electricalMechanical', item)}
                         onChange={(e) => {
                           if (item === 'Other') {
                             setOtherSelection('electricalMechanical', e.target.checked);
@@ -934,8 +1210,9 @@ export default function TECAssessmentForm() {
                     <label key={item} className="flex items-center space-x-3">
                       <input 
                         type="checkbox" 
-                        name="fire_detection" 
+                        name="fireDetection" 
                         value={item}
+                        defaultChecked={isFieldOptionSelected('fireDetection', item)}
                         onChange={(e) => {
                           if (item === 'Other') {
                             setOtherSelection('fireDetection', e.target.checked);
@@ -966,6 +1243,7 @@ export default function TECAssessmentForm() {
                         type="checkbox" 
                         name="infrastructure" 
                         value={item}
+                        defaultChecked={isFieldOptionSelected('infrastructure', item)}
                         onChange={(e) => {
                           if (item === 'Other') {
                             setOtherSelection('infrastructure', e.target.checked);
@@ -984,10 +1262,10 @@ export default function TECAssessmentForm() {
           );
         case 3:
           return (
-            <section>
+            <section className="bg-white p-6 rounded-lg shadow">
               <h2 className="text-xl font-semibold mb-4">Assessment & Evaluation</h2>
               <div>
-                <p>
+                <p className="leading-7 text-[#1f2a44]">
                 Assess the proposal for : completeness with Documentation,
                 meet the Technical and Environmental standards, demonstrates 
                 financial soundness, and is Socially conscious to improve the 
@@ -1200,6 +1478,7 @@ export default function TECAssessmentForm() {
                         name="reviewing_department" 
                         value={dept}
                         required
+                        data-skip-autosave="true"
                         checked={formData.reviewingDepartment === dept}
                         onChange={(e) => handleReviewingDepartmentChange(e.target.value)}
                         className="h-5 w-5 border-gray-300"
@@ -1940,6 +2219,7 @@ export default function TECAssessmentForm() {
                         type="checkbox" 
                         name="project_preparation" 
                         value={item.toLowerCase().replace(/\s+/g, '-')}
+                        defaultChecked={isDepartmentFieldOptionSelected('project_preparation', item.toLowerCase().replace(/\s+/g, '-'))}
                         className="h-5 w-5 border-gray-300 rounded"
                       />
                       <span className="text-gray-700">{item}</span>
@@ -2804,7 +3084,7 @@ export default function TECAssessmentForm() {
 
     return (
       <div className="tec-content-wrap mx-auto max-w-[1120px] space-y-6">
-        <div className="rounded-2xl border border-[#d9d5cd] bg-white px-5 py-4 shadow-[0_6px_24px_rgba(24,39,75,0.08)] sm:px-6">
+        <div className="sticky top-20 z-20 rounded-2xl border border-[#d9d5cd] bg-white/95 px-5 py-4 shadow-[0_10px_30px_rgba(24,39,75,0.12)] backdrop-blur sm:px-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <div className="rounded-xl border border-[#ddd8d1] bg-[#f8f6f3] p-2">
@@ -2823,7 +3103,7 @@ export default function TECAssessmentForm() {
               </div>
             </div>
             <div className="rounded-xl border border-[#ddd8d1] bg-[#f6f4f1] px-4 py-3 text-sm text-[#58647a]">
-              <span className="font-semibold text-[#2a3550]">Step {currentStep}</span> of {totalSteps}
+              <span className="font-semibold text-[#2a3550]">Step {displayedCurrentStep}</span> of {displayedTotalSteps}
             </div>
           </div>
 
@@ -2832,19 +3112,25 @@ export default function TECAssessmentForm() {
             <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#e5e2db]">
               <div
                 className="h-full rounded-full bg-[#991b1e] transition-all duration-300"
-                style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+                style={{ width: `${displayedProgress}%` }}
               ></div>
             </div>
             <div className="text-xs font-semibold text-[#6a7388]">
-              {Math.round((currentStep / totalSteps) * 100)}% complete
+              {displayedProgress}% complete
             </div>
           </div>
         </div>
 
-        <form className="tec-form space-y-6" onSubmit={(e) => e.preventDefault()} onChange={handleDepartmentFieldChange}>
+        <form ref={formRef} className="tec-form space-y-6" onSubmit={(e) => e.preventDefault()} onChange={handleFormFieldChange}>
           {renderSection()}
 
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#d9d5cd] bg-white px-4 py-4 shadow-[0_4px_18px_rgba(24,39,75,0.06)]">
+            {saveStatus && (
+              <div className={`w-full rounded-xl border p-3 text-sm font-medium ${saveStatus.includes('successfully') ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
+                {saveStatus}
+              </div>
+            )}
+
             {currentStep > 1 && (
               <button
                 type="button"
@@ -2858,7 +3144,7 @@ export default function TECAssessmentForm() {
 
             <button
               type="button"
-              onClick={saveFormData}
+              onClick={() => saveFormData({ requireReviewingDepartment: currentStep === 4 })}
               disabled={isSaving}
               className="inline-flex items-center gap-2 rounded-xl border border-[#d6d2ca] bg-[#f4f2ef] px-4 py-2.5 text-sm font-semibold text-[#2f3a54] transition hover:border-[#9a2a25] hover:text-[#9a2a25] disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -2900,12 +3186,6 @@ export default function TECAssessmentForm() {
               </button>
             )}
           </div>
-
-          {saveStatus && (
-            <div className={`rounded-xl border p-3 text-sm font-medium ${saveStatus.includes('successfully') ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
-              {saveStatus}
-            </div>
-          )}
         </form>
       </div>
     );

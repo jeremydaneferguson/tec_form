@@ -1,15 +1,87 @@
 import { prisma } from '@/lib/prisma';
 
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const telephoneAllowedPattern = /^\+?[\d\s().-]+$/;
+
+const isValidEmail = (value) => emailPattern.test(String(value || '').trim());
+
+const isValidTelephone = (value) => {
+  const normalizedValue = String(value || '').trim();
+  const digitCount = normalizedValue.replace(/\D/g, '').length;
+
+  return telephoneAllowedPattern.test(normalizedValue) && digitCount >= 7 && digitCount <= 15;
+};
+
+const isValidDateValue = (value) => {
+  const normalizedValue = String(value || '').trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
+    return false;
+  }
+
+  const [year, month, day] = normalizedValue.split('-').map(Number);
+  const parsedDate = new Date(year, month - 1, day);
+
+  return parsedDate.getFullYear() === year &&
+    parsedDate.getMonth() === month - 1 &&
+    parsedDate.getDate() === day;
+};
+
+const isFutureDate = (value) => {
+  const [year, month, day] = String(value || '').split('-').map(Number);
+  const selectedDate = new Date(year, month - 1, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return selectedDate > today;
+};
+
+const getFormValue = (formData, fieldName) =>
+  typeof formData?.[fieldName] === 'string' ? formData[fieldName].trim() : '';
+
+const validateSubmissionFields = ({ email, formData, status, requireEmail }) => {
+  const errors = [];
+  const date = getFormValue(formData, 'date');
+  const contactTelephone = getFormValue(formData, 'contactTelephone');
+  const isSubmitting = status === 'submitted';
+
+  if (requireEmail && !email) {
+    errors.push('Email is required');
+  } else if (email && !isValidEmail(email)) {
+    errors.push('A valid email is required');
+  }
+
+  if (isSubmitting && !date) {
+    errors.push('Date is required');
+  } else if (date && (!isValidDateValue(date) || isFutureDate(date))) {
+    errors.push('A valid non-future date is required');
+  }
+
+  if (isSubmitting && !contactTelephone) {
+    errors.push('Contact Telephone is required');
+  } else if (contactTelephone && !isValidTelephone(contactTelephone)) {
+    errors.push('A valid contact telephone number is required');
+  }
+
+  return errors;
+};
+
 // POST: Save form submission
 export async function POST(request) {
   try {
     const body = await request.json();
     const { id, email, formData, status } = body;
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const validationErrors = validateSubmissionFields({
+      email: normalizedEmail,
+      formData,
+      status,
+      requireEmail: !id,
+    });
 
-    if (!id && !normalizedEmail) {
+    if (validationErrors.length > 0) {
       return Response.json(
-        { error: 'Email is required' },
+        { error: validationErrors.join('. ') },
         { status: 400 }
       );
     }

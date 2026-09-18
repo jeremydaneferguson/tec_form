@@ -1,6 +1,9 @@
 import { hashPassword } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const isValidEmail = (value) => emailPattern.test(String(value || '').trim());
+
 export async function GET() {
   try {
     const users = await prisma.user.findMany({
@@ -25,7 +28,7 @@ export async function POST(request) {
     const normalizedRole = typeof role === 'string' ? role.trim() : '';
     const normalizedDepartment = typeof department === 'string' ? department.trim() : '';
 
-    if (!normalizedEmail || !normalizedRole || !normalizedDepartment) {
+    if (!isValidEmail(normalizedEmail) || !normalizedRole || !normalizedDepartment) {
       return Response.json(
         { error: 'Valid email, role, and department are required' },
         { status: 400 }
@@ -62,7 +65,7 @@ export async function PATCH(request) {
 
     if (email !== undefined) {
       const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
-      if (!normalizedEmail) {
+      if (!isValidEmail(normalizedEmail)) {
         return Response.json({ error: 'Valid email is required' }, { status: 400 });
       }
       data.email = normalizedEmail;
