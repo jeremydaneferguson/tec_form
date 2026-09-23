@@ -72,7 +72,7 @@ export default function AdminNav({ children, currentUser = "Admin" }) {
         <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
           <p className="text-xs font-semibold tracking-[0.3em] text-[#9a2a25] sm:text-sm">
             <Image
-              src="/uwi-logo.png"
+              src="/tec/uwi-logo.png"
               alt="University of the West Indies logo"
               width={50}
               height={60}
@@ -99,9 +99,9 @@ export default function AdminNav({ children, currentUser = "Admin" }) {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_1fr] lg:px-8">
-        <aside className="rounded-2xl border border-[#d9d5cd] bg-[#f5f3ef] p-3 shadow-[0_4px_18px_rgba(24,39,75,0.06)]">
-          <nav className="space-y-1.5">
+      <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-5 px-4 py-4 sm:px-6 sm:py-5 lg:grid-cols-[224px_minmax(0,1fr)] lg:px-8">
+        <aside className="overflow-x-auto rounded-2xl border border-[#d9d5cd] bg-[#f5f3ef] p-2.5 shadow-[0_4px_18px_rgba(24,39,75,0.05)] lg:sticky lg:top-20 lg:self-start lg:overflow-visible">
+          <nav className="flex min-w-max gap-1.5 lg:block lg:min-w-0 lg:space-y-1.5">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive =
@@ -113,7 +113,7 @@ export default function AdminNav({ children, currentUser = "Admin" }) {
                 <Link
                   key={item.label}
                   href={item.href}
-                  className={`group flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition ${
+                  className={`group flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
                     isActive
                       ? "bg-[#991b1e] text-white shadow"
                       : "text-[#546077] hover:bg-[#ece8e2] hover:text-[#991b1e]"
@@ -134,7 +134,7 @@ export default function AdminNav({ children, currentUser = "Admin" }) {
             })}
           </nav>
 
-          <div className="mt-6 rounded-xl border border-[#ddd8d1] bg-white px-3 py-3 text-xs text-[#6a7388]">
+          <div className="mt-5 hidden rounded-xl border border-[#ddd8d1] bg-white px-3 py-3 text-xs leading-5 text-[#6a7388] lg:block">
             <div className="mb-1 inline-flex items-center gap-2 font-semibold text-[#2d3750]">
               <FileCheck className="h-4 w-4 text-[#991b1e]" />
               TEC Assessment
@@ -143,7 +143,7 @@ export default function AdminNav({ children, currentUser = "Admin" }) {
           </div>
         </aside>
 
-        <main>{children}</main>
+        <main className="min-w-0">{children}</main>
       </div>
     </div>
   );

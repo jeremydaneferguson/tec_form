@@ -1,12 +1,13 @@
 "use client";
-import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, FileDown, Save, Send } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ClipboardCheck, FileDown, Save, Send } from 'lucide-react';
 
 export default function TECAssessmentForm() {
   const router = useRouter();
     const formRef = useRef(null);
+    const progressHeaderRef = useRef(null);
+    const previousStepRef = useRef(1);
     const [currentStep, setCurrentStep] = useState(1);
     const [formData, setFormData] = useState({});
     const [isSaving, setIsSaving] = useState(false);
@@ -22,6 +23,16 @@ export default function TECAssessmentForm() {
     const displayedTotalSteps = sharedWorkflowSteps + 1;
     const displayedCurrentStep = currentStep <= sharedWorkflowSteps ? currentStep : displayedTotalSteps;
     const displayedProgress = Math.round((displayedCurrentStep / displayedTotalSteps) * 100);
+    const sharedStepLabels = {
+      1: 'Project background',
+      2: 'Technical details',
+      3: 'Assessment & evaluation',
+      4: 'Review routing',
+      5: 'Documentation review',
+    };
+    const currentStepLabel = currentStep <= sharedWorkflowSteps
+      ? sharedStepLabels[currentStep]
+      : `${formData.reviewingDepartment || 'Department'} review`;
 
     const reviewingDepartmentStepMap = {
       EMD: 6,
@@ -623,6 +634,23 @@ export default function TECAssessmentForm() {
       });
     }, [currentStep, formData]);
 
+    useEffect(() => {
+      if (previousStepRef.current === currentStep) {
+        return;
+      }
+
+      previousStepRef.current = currentStep;
+      const frame = window.requestAnimationFrame(() => {
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        progressHeaderRef.current?.scrollIntoView({
+          behavior: prefersReducedMotion ? 'auto' : 'smooth',
+          block: 'start',
+        });
+      });
+
+      return () => window.cancelAnimationFrame(frame);
+    }, [currentStep]);
+
     const nextStep = () => {
         if (currentStep < totalSteps) {
             const requireReviewingDepartment = currentStep === 4 || currentStep === 5;
@@ -829,9 +857,9 @@ export default function TECAssessmentForm() {
                 <section className="bg-white p-6 rounded-lg shadow">
                   <div>
                     <label className="block mb-1">Title:</label>
-                    <div className="space-y-2">
+                    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {['Mr', 'Mrs', 'Ms.', 'Dr', 'Professor', 'Other'].map((title) => (
-                        <label key={title} className="flex items-center space-x-2">
+                        <label key={title} className="flex items-center gap-2">
                           <input 
                             type="radio" 
                             name="title" 
@@ -846,7 +874,7 @@ export default function TECAssessmentForm() {
                         </label>
                       ))}
                       {formData.title === 'Other' && (
-                        <div className="mt-3">
+                        <div className="col-span-2 mt-1 sm:col-span-3">
                           <input
                             type="text"
                             value={formData.titleOther || ''}
@@ -1284,7 +1312,10 @@ export default function TECAssessmentForm() {
                     <div>
                       <input 
                         type="text" 
-                        required
+                        name="requiredDocumentationDescription"
+                        value={formData.requiredDocumentationDescription || ''}
+                        onChange={(e) => updateField('requiredDocumentationDescription', e.target.value)}
+                        data-skip-autosave="true"
                         className="w-full p-2 border rounded"
                         placeholder="Description (optional)"
                       />
@@ -1430,6 +1461,10 @@ export default function TECAssessmentForm() {
               <div>
                 <input 
                   type="text"
+                  name="technicalEnvironmentalAssessmentDescription"
+                  value={formData.technicalEnvironmentalAssessmentDescription || ''}
+                  onChange={(e) => updateField('technicalEnvironmentalAssessmentDescription', e.target.value)}
+                  data-skip-autosave="true"
                   placeholder="Description (optional)"
                   className="w-full p-2 border rounded text-gray-600"
                 />
@@ -3083,33 +3118,29 @@ export default function TECAssessmentForm() {
     };
 
     return (
-      <div className="tec-content-wrap mx-auto max-w-[1120px] space-y-6">
-        <div className="sticky top-20 z-20 rounded-2xl border border-[#d9d5cd] bg-white/95 px-5 py-4 shadow-[0_10px_30px_rgba(24,39,75,0.12)] backdrop-blur sm:px-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="rounded-xl border border-[#ddd8d1] bg-[#f8f6f3] p-2">
-                {/* <Image
-                  src="/uwi-logo.png"
-                  alt="The University of the West Indies logo"
-                  width={48}
-                  height={48}
-                  priority
-                  className="h-12 w-auto object-contain"
-                /> */}
+      <div className="tec-content-wrap mx-auto max-w-[1120px] space-y-5 pb-8">
+        <div
+          ref={progressHeaderRef}
+          className="tec-progress-header sticky top-20 z-20 scroll-mt-20 rounded-2xl border border-[#d9d5cd] bg-white/95 px-4 py-4 shadow-[0_10px_30px_rgba(24,39,75,0.1)] backdrop-blur sm:px-5"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f6eaea] text-[#991b1e]">
+                <ClipboardCheck className="h-5 w-5" aria-hidden="true" />
               </div>
-              <div>
-                {/* <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#9a2a25]">Audit Workspace</p> */}
-                <h1 className="text-xl font-bold text-[#1f2a44] sm:text-2xl">TEC Proposal Assessment Form</h1>
+              <div className="min-w-0">
+                <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-[#991b1e]">TEC Proposal Assessment Form</p>
+                <h1 className="mt-0.5 truncate text-lg font-bold text-[#1f2a44] sm:text-xl">{currentStepLabel}</h1>
               </div>
             </div>
-            <div className="rounded-xl border border-[#ddd8d1] bg-[#f6f4f1] px-4 py-3 text-sm text-[#58647a]">
+            <div className="self-start rounded-xl border border-[#ddd8d1] bg-[#f6f4f1] px-3 py-2 text-sm text-[#58647a] sm:self-auto">
               <span className="font-semibold text-[#2a3550]">Step {displayedCurrentStep}</span> of {displayedTotalSteps}
             </div>
           </div>
 
           {/* Progress indicator */}
-          <div className="mt-4 flex items-center gap-4">
-            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#e5e2db]">
+          <div className="mt-3 flex items-center gap-3">
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#e5e2db]">
               <div
                 className="h-full rounded-full bg-[#991b1e] transition-all duration-300"
                 style={{ width: `${displayedProgress}%` }}
@@ -3121,10 +3152,15 @@ export default function TECAssessmentForm() {
           </div>
         </div>
 
-        <form ref={formRef} className="tec-form space-y-6" onSubmit={(e) => e.preventDefault()} onChange={handleFormFieldChange}>
-          {renderSection()}
+        <form ref={formRef} className="tec-form space-y-4" onSubmit={(e) => e.preventDefault()} onChange={handleFormFieldChange}>
+          <div
+            key={currentStep}
+            className={`tec-form-page tec-form-page-${currentStep <= sharedWorkflowSteps ? currentStep : 'department'}`}
+          >
+            {renderSection()}
+          </div>
 
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#d9d5cd] bg-white px-4 py-4 shadow-[0_4px_18px_rgba(24,39,75,0.06)]">
+          <div className="tec-form-actions mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#d9d5cd] bg-white/95 px-4 py-3 shadow-[0_10px_28px_rgba(24,39,75,0.1)] backdrop-blur">
             {saveStatus && (
               <div className={`w-full rounded-xl border p-3 text-sm font-medium ${saveStatus.includes('successfully') ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
                 {saveStatus}
@@ -3135,7 +3171,7 @@ export default function TECAssessmentForm() {
               <button
                 type="button"
                 onClick={prevStep}
-                className="inline-flex items-center gap-2 rounded-xl border border-[#c8c2b8] bg-white px-4 py-2.5 text-sm font-semibold text-[#2f3a54] transition hover:border-[#9a2a25] hover:text-[#9a2a25]"
+                className="tec-action-button inline-flex items-center gap-2 rounded-xl border border-[#c8c2b8] bg-white px-4 py-2.5 text-sm font-semibold text-[#2f3a54] transition hover:border-[#9a2a25] hover:text-[#9a2a25]"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Previous
@@ -3146,7 +3182,7 @@ export default function TECAssessmentForm() {
               type="button"
               onClick={() => saveFormData({ requireReviewingDepartment: currentStep === 4 })}
               disabled={isSaving}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#d6d2ca] bg-[#f4f2ef] px-4 py-2.5 text-sm font-semibold text-[#2f3a54] transition hover:border-[#9a2a25] hover:text-[#9a2a25] disabled:cursor-not-allowed disabled:opacity-60"
+              className="tec-action-button inline-flex items-center gap-2 rounded-xl border border-[#d6d2ca] bg-[#f4f2ef] px-4 py-2.5 text-sm font-semibold text-[#2f3a54] transition hover:border-[#9a2a25] hover:text-[#9a2a25] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Save className="h-4 w-4" />
               {isSaving ? 'Saving...' : 'Save'}
@@ -3157,7 +3193,7 @@ export default function TECAssessmentForm() {
                 type="button"
                 onClick={exportAsPdf}
                 disabled={isSaving || isExportingPdf}
-                className="inline-flex items-center gap-2 rounded-xl border border-[#d6d2ca] bg-white px-4 py-2.5 text-sm font-semibold text-[#2f3a54] transition hover:border-[#9a2a25] hover:text-[#9a2a25] disabled:cursor-not-allowed disabled:opacity-60"
+                className="tec-action-button inline-flex items-center gap-2 rounded-xl border border-[#d6d2ca] bg-white px-4 py-2.5 text-sm font-semibold text-[#2f3a54] transition hover:border-[#9a2a25] hover:text-[#9a2a25] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <FileDown className="h-4 w-4" />
                 {isExportingPdf ? 'Preparing PDF...' : 'Export PDF'}
@@ -3169,7 +3205,7 @@ export default function TECAssessmentForm() {
               <button
                 type="button"
                 onClick={nextStep}
-                className={`${currentStep === 1 ? 'ml-auto' : ''} inline-flex items-center gap-2 rounded-xl bg-[#991b1e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#7f1719]`}
+                className={`${currentStep === 1 ? 'ml-auto' : ''} tec-action-button inline-flex items-center gap-2 rounded-xl bg-[#991b1e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#7f1719]`}
               >
                 Next
                 <ChevronRight className="h-4 w-4" />
@@ -3179,7 +3215,7 @@ export default function TECAssessmentForm() {
               <button
                 type="button"
                 onClick={submitForm}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#991b1e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#7f1719]"
+                className="tec-action-button inline-flex items-center gap-2 rounded-xl bg-[#991b1e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#7f1719]"
               >
                 <Send className="h-4 w-4" />
                  Save & Submit
