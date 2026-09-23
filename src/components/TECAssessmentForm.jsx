@@ -1099,7 +1099,7 @@ export default function TECAssessmentForm() {
                       <option value="">Select a Topography</option>
                       <option value="gentlySloping">Gently Sloping</option>
                       <option value="relativelyFlat">Relatively Flat</option>
-                      <option value="sleep">Sleep</option>
+                      <option value="steep">Steep</option>
                       <option value="moderatelySloping">Moderately Sloping</option>
                     </select>
                   </div>
