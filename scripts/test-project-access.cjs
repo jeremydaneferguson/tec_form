@@ -51,6 +51,14 @@ const post = (body) => ({ json: async () => body });
   assert.equal(queries, 0);
   const normalized = detailsPolicy.normalizeFormDetails({ objectives: '4', 'documentation-rating': '8', utilities: ['Fibre (ICT)', 'Fibre (ICT)', ' LPG '], approvalsRecommendations: '{"tender Committee":{"stage2":true,"stage3":"false"}}' });
   assert.equal(normalized.objectives, 4);
+  const legacyAssessment = detailsPolicy.normalizeFormDetails({ technicalEnvironmentalAssessmentDescription: '8' });
+  assert.equal(legacyAssessment.technicalEnvironmentalAssessmentRating, 8);
+  assert.equal(legacyAssessment.technicalEnvironmentalAssessmentDescription, undefined);
+  assert.equal(detailsPolicy.normalizeFormDetails({ technicalEnvironmentalAssessmentDescription: 'Retain original notes' }).technicalEnvironmentalAssessmentDescription, 'Retain original notes');
+  assert.equal(detailsPolicy.detailText('technicalEnvironmentalAssessmentRating', 8), '8 / 10');
+  for (const score of [1, 10]) assert.equal(detailsPolicy.validateFormDetails({ technicalEnvironmentalAssessmentRating: score }).length, 0);
+  for (const score of [0, 11, 4.5, 'invalid']) assert.equal(detailsPolicy.validateFormDetails({ technicalEnvironmentalAssessmentRating: score }).length, 1);
+
   assert.equal(normalized.documentationRating, 8);
   assert.equal(normalized['documentation-rating'], undefined);
   assert.equal(normalized.utilities.join('|'), 'Fibre (ICT)|LPG');
@@ -124,11 +132,12 @@ const post = (body) => ({ json: async () => body });
     assert.equal((await submissions.POST(post({ id: 'other', workflow: 'approval', status: 'approved', formData: {} }))).status, 409);
   }
   user = { email: 'approver@example.com', role: 'approver' };
-  assert.equal((await submissions.POST(post({ id: 'own', workflow: 'approval', formData: { ...completed, projectName: 'Tampered', reviewingDepartment: 'EMD', deptReview_emd_adequacy: 'adequate', objectives: '4', 'documentation-rating': '8' } }))).status, 200);
+  assert.equal((await submissions.POST(post({ id: 'own', workflow: 'approval', formData: { ...completed, projectName: 'Tampered', reviewingDepartment: 'EMD', deptReview_emd_adequacy: 'adequate', objectives: '4', 'documentation-rating': '8', technicalEnvironmentalAssessmentRating: '9' } }))).status, 200);
   const assessed = await (await submissions.GET(request('id=own'))).json();
   assert.equal(assessed.status, 'submitted');
   assert.equal(assessed.formData.objectives, 4);
   assert.equal(assessed.formData.documentationRating, 8);
+  assert.equal(assessed.formData.technicalEnvironmentalAssessmentRating, 9);
   assert.equal((await submissions.POST(post({ id: 'own', workflow: 'approval', formData: { ...assessed.formData, objectives: 7 } }))).status, 400);
   assert.equal(assessed.formData.projectName, completed.projectName);
   assert.equal(assessed.formData.deptReview_emd_adequacy, 'adequate');

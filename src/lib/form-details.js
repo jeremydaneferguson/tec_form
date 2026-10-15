@@ -3,6 +3,7 @@ export const RATING_FIELDS = {
   construction: { label: 'New construction and site evaluation', max: 5 },
   renovation: { label: 'Renovation and existing structure', max: 5 },
   documentationRating: { label: 'Overall documentation rating', max: 10 },
+  technicalEnvironmentalAssessmentRating: { label: 'Technical and environmental assessment rating', max: 10 },
 };
 export const AGREEMENT_LABELS = { 1: 'Strongly disagree', 2: 'Disagree', 3: 'Neutral', 4: 'Agree', 5: 'Strongly agree' };
 export const SELECTION_FIELDS = ['utilities', 'electricalMechanical', 'fireDetection', 'infrastructure'];
@@ -11,7 +12,7 @@ export const RECOMMENDATION_STAGES = ['stage1', 'stage2', 'stage3'];
 export const DETAIL_GROUPS = [
   { title: 'Technical and site details', fields: ['technicalDescription', 'locationMetrics', 'preciseBuildingLocation', 'existingBuildingArea', 'proposedBuildingArea', 'siteAnalysis', 'topography', 'buildingFunction'] },
   { title: 'Utilities and infrastructure', fields: ['utilities', 'utilitiesOther', 'utilityChargesResponsibility', 'electricalMechanical', 'electricalMechanicalOther', 'fireDetection', 'fireDetectionOther', 'infrastructure', 'infrastructureOther'] },
-  { title: 'Documentation assessment', fields: ['requiredDocumentationDescription', 'objectives', 'construction', 'renovation', 'documentationRating', 'technicalEnvironmentalAssessmentDescription'] },
+  { title: 'Documentation assessment', fields: ['requiredDocumentationDescription', 'objectives', 'construction', 'renovation', 'documentationRating', 'technicalEnvironmentalAssessmentRating', 'technicalEnvironmentalAssessmentDescription'] },
 ];
 const LABELS = {
   electricalMechanical: 'Electrical and mechanical systems',
@@ -33,6 +34,11 @@ export function normalizeFormDetails(data = {}) {
     normalized.documentationRating = normalized['documentation-rating'];
   }
   delete normalized['documentation-rating'];
+  const previousAssessment = normalized.technicalEnvironmentalAssessmentDescription;
+  if ((normalized.technicalEnvironmentalAssessmentRating === undefined || normalized.technicalEnvironmentalAssessmentRating === null) && previousAssessment !== undefined && previousAssessment !== null && /^([1-9]|10)$/.test(String(previousAssessment).trim())) {
+    normalized.technicalEnvironmentalAssessmentRating = Number(previousAssessment);
+    delete normalized.technicalEnvironmentalAssessmentDescription;
+  }
   for (const key of Object.keys(RATING_FIELDS)) {
     const value = normalized[key];
     if (typeof value === 'string' && /^\d+$/.test(value.trim())) normalized[key] = Number(value);

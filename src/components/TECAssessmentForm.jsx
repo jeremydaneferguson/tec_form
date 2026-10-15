@@ -1461,18 +1461,32 @@ export default function TECAssessmentForm({ approvalId = null }) {
 
             {/* Technical & Environmental Assessment Section */}
             <section className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg mb-4">TECHNICAL & ENVIRONMENTAL ASSESSMENT RATING</h3>
-              <div>
-                <input 
-                  type="text"
-                  name="technicalEnvironmentalAssessmentDescription"
-                  value={formData.technicalEnvironmentalAssessmentDescription || ''}
-                  onChange={(e) => updateField('technicalEnvironmentalAssessmentDescription', e.target.value)}
-                  data-skip-autosave="true"
-                  placeholder="Description (optional)"
-                  className="w-full p-2 border rounded text-gray-600"
-                />
-              </div>
+              <fieldset>
+                <legend className="text-lg mb-4">TECHNICAL &amp; ENVIRONMENTAL ASSESSMENT RATING</legend>
+                <p id="technical-environmental-rating-help" className="mb-3 text-sm text-[#6a7388]">Select a score from 1 to 10 (optional).</p>
+                <div className="grid grid-cols-5 gap-3 lg:grid-cols-10">
+                  {Array.from({ length: 10 }, (_, index) => index + 1).map((value) => (
+                    <label key={value} className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border p-3 text-sm ${String(formData.technicalEnvironmentalAssessmentRating) === String(value) ? 'border-[#991b1e] bg-red-50 font-semibold text-[#991b1e]' : 'border-[#ddd8d1] text-[#546077]'}`}>
+                      <input
+                        type="radio"
+                        name="technicalEnvironmentalAssessmentRating"
+                        value={value}
+                        checked={String(formData.technicalEnvironmentalAssessmentRating) === String(value)}
+                        onChange={() => updateField('technicalEnvironmentalAssessmentRating', value)}
+                        data-skip-autosave="true"
+                        aria-describedby="technical-environmental-rating-help"
+                        disabled={isSaving}
+                        className="h-4 w-4 accent-[#991b1e]"
+                      />
+                      {value}
+                    </label>
+                  ))}
+                </div>
+                {formData.technicalEnvironmentalAssessmentRating != null && formData.technicalEnvironmentalAssessmentRating !== '' && (
+                  <button type="button" disabled={isSaving} onClick={() => updateField('technicalEnvironmentalAssessmentRating', null)} className="mt-3 text-sm text-[#991b1e] underline">Clear rating</button>
+                )}
+                {formData.technicalEnvironmentalAssessmentDescription && <p className="mt-4 whitespace-pre-wrap text-sm text-[#6a7388]">Previous assessment notes: {formData.technicalEnvironmentalAssessmentDescription}</p>}
+              </fieldset>
             </section>
           </div>
           );
