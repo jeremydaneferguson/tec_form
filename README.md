@@ -136,3 +136,13 @@ and editing; canonical types are persisted on subsequent saves.
 
 Project summaries group technical details, utility selections, documentation
 ratings, and a committee-stage matrix. PDF exports also use readable text.
+
+## Session cookies and HTTP deployments
+
+Production cookies default to `Secure` and require HTTPS. For a server currently
+served over HTTP, explicitly set `SESSION_COOKIE_SECURE=false` in the server's
+`.env` and restart the application. This allows login over HTTP; session traffic
+will not be encrypted. Use this only on a trusted network until HTTPS is enabled.
+When HTTPS is available, set `SESSION_COOKIE_SECURE=true` (or remove the override)
+and restart. Cookies remain HttpOnly, SameSite=Lax, and scoped to `/tec`. Never
+change `NODE_ENV` to work around the transport setting.

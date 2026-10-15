@@ -7,7 +7,9 @@ const MAX_AGE = 60 * 60 * 8;
 const hashToken = (token) => createHash('sha256').update(token).digest('hex');
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
+  // Explicit opt-out for an HTTP deployment; HTTPS remains the production default.
+  secure: process.env.SESSION_COOKIE_SECURE === 'true' ||
+    (process.env.NODE_ENV === 'production' && process.env.SESSION_COOKIE_SECURE !== 'false'),
   sameSite: 'lax',
   path: '/tec',
 };
