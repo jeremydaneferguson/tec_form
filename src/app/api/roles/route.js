@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 
 const DEFAULT_ROLES = [
@@ -8,6 +9,8 @@ const DEFAULT_ROLES = [
 
 export async function GET() {
   try {
+    const denied = await requireAdmin();
+    if (denied) return denied;
     let roles = [];
 
     try {
@@ -69,6 +72,8 @@ export async function GET() {
 
 export async function POST(request) {
   try {
+    const denied = await requireAdmin();
+    if (denied) return denied;
     const body = await request.json();
     const { name, description } = body;
 

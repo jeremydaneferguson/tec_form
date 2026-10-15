@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MITS Applications (Internal) — The University of the West Indies</title>
+  <!-- No external font link: this host reaches the internet only via
+       proxy-manual.uwimona.edu.jm:8080, so a blocking font request can stall
+       first render. Same family is requested if installed locally. -->
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    /* ── Header ──────────────────────────────────────── */
+    .header {
+      background: linear-gradient(135deg, #003DA5 0%, #0052cc 100%);
+      color: #fff;
+      padding: 2.5rem 1.5rem 2rem;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0, 61, 165, 0.35);
+    }
+
+    .header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .header p {
+      margin-top: 0.5rem;
+      font-size: 1rem;
+      opacity: 0.85;
+      font-weight: 400;
+    }
+
+    .header__unit {
+      display: inline-block;
+      margin-top: 0.75rem;
+      padding: 0.3rem 1rem;
+      background: rgba(255,255,255,0.15);
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .header__host {
+      display: inline-block;
+      margin-top: 0.75rem;
+      margin-left: 0.5rem;
+      padding: 0.3rem 1rem;
+      background: rgba(255, 214, 0, 0.18);
+      border: 1px solid rgba(255, 214, 0, 0.45);
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    /* ── Notice ──────────────────────────────────────── */
+    .notice {
+      max-width: 1100px;
+      margin: 2rem auto 0;
+      padding: 1rem 1.25rem;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-left: 4px solid #d97706;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      line-height: 1.55;
+      color: #713f12;
+    }
+    .notice strong { font-weight: 700; }
+    .notice a { color: #003DA5; font-weight: 600; }
+    @media (max-width: 1130px) { .notice { margin-left: 1.5rem; margin-right: 1.5rem; } }
+
+    /* ── Grid ────────────────────────────────────────── */
+    .container {
+      max-width: 1100px;
+      margin: 2rem auto 3rem;
+      padding: 0 1.5rem;
+    }
+
+    .section-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 1rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+
+    /* ── Card ────────────────────────────────────────── */
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 2rem;
+      text-decoration: none;
+      color: inherit;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      display: flex;
+      align-items: flex-start;
+      gap: 1.25rem;
+    }
+
+    .card:hover, .card:focus-visible {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px rgba(0, 61, 165, 0.15);
+      outline: none;
+    }
+    .card:focus-visible { box-shadow: 0 0 0 3px #003DA5; transform: none; }
+
+    .card__icon {
+      flex-shrink: 0;
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+    }
+
+    .card__body h2 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+
+    .card__body p {
+      font-size: 0.875rem;
+      color: #64748b;
+      line-height: 1.5;
+    }
+
+    .card__path {
+      display: inline-block;
+      margin-top: 0.6rem;
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.75rem;
+      color: #475569;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 5px;
+      padding: 0.12rem 0.4rem;
+    }
+
+    .card__arrow {
+      margin-left: auto;
+      align-self: center;
+      font-size: 1.25rem;
+      color: #94a3b8;
+      transition: color 0.2s, transform 0.2s;
+    }
+
+    .card:hover .card__arrow {
+      color: #003DA5;
+      transform: translateX(3px);
+    }
+
+    /* ── Elsewhere (not hosted here) ─────────────────── */
+    .elsewhere {
+      margin-top: 3rem;
+      padding-top: 2rem;
+      border-top: 1px solid #dfe3e8;
+    }
+
+    .elsewhere .grid { gap: 1rem; }
+
+    .card--muted {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      box-shadow: none;
+      padding: 1.25rem 1.5rem;
+    }
+    .card--muted:hover {
+      transform: none;
+      box-shadow: 0 4px 16px rgba(0, 61, 165, 0.08);
+      border-style: solid;
+      border-color: #003DA5;
+    }
+    .card--muted .card__icon { width: 40px; height: 40px; border-radius: 10px; }
+    .card--muted .card__body h2 { font-size: 1rem; }
+    .card--muted .card__body p { font-size: 0.8rem; }
+
+    /* ── Icon colours (matching the public portal) ───── */
+    .icon-recruit   { background: #ede9fe; color: #7c3aed; }
+    .icon-etime     { background: #dbeafe; color: #2563eb; }
+    .icon-legal     { background: #fce7f3; color: #db2777; }
+    .icon-vouchers  { background: #d1fae5; color: #059669; }
+    .icon-health    { background: #ffe4e6; color: #e11d48; }
+    .icon-tec       { background: #fef3c7; color: #b45309; }
+    .icon-portal    { background: #e0e7ff; color: #4338ca; }
+
+    /* ── Footer ──────────────────────────────────────── */
+    .footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      line-height: 1.7;
+    }
+
+    .footer a { color: #003DA5; text-decoration: none; }
+    .footer code {
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.95em;
+    }
+
+    /* ── Responsive ──────────────────────────────────── */
+    @media (max-width: 640px) {
+      .header h1 { font-size: 1.35rem; }
+      .header__host { margin-left: 0; }
+      .grid { grid-template-columns: 1fr; }
+      .card { padding: 1.5rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .card, .card__arrow { transition: none; }
+      .card:hover { transform: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <h1>The University of the West Indies</h1>
+    <p>Applications Portal</p>
+    <span class="header__unit">Mona Information &amp; Technology Services (MITS)</span>
+    <span class="header__host">costmod-srv &middot; internal</span>
+  </header>
+
+  <div class="notice">
+    <strong>This is the internal application server.</strong>
+    It serves apps directly over plain HTTP and is reachable only from the campus
+    network. For normal use &mdash; and for anything over the internet &mdash; go to
+    <a href="https://applications.mona.uwi.edu/">applications.mona.uwi.edu</a>,
+    which adds TLS and hosts the full set of applications.
+  </div>
+
+  <main class="container">
+
+    <div class="section-label">Available on this server</div>
+    <div class="grid">
+
+      <a href="/bannerc/" class="card">
+        <div class="card__icon icon-vouchers">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        </div>
+        <div class="card__body">
+          <h2>eVouchers</h2>
+          <p>Voucher processing, financial approvals, and payment tracking.</p>
+          <span class="card__path">/bannerc/</span>
+        </div>
+        <span class="card__arrow">&#8250;</span>
+      </a>
+
+      <a href="/recruit/" class="card">
+        <div class="card__icon icon-recruit">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        </div>
+        <div class="card__body">
+          <h2>Recruitment</h2>
+          <p>Talent acquisition, job requisitions, interviews, and offer management.</p>
+          <span class="card__path">/recruit/</span>
+        </div>
+        <span class="card__arrow">&#8250;</span>
+      </a>
+
+      <a href="/tec" class="card">
+        <div class="card__icon icon-tec" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-3"/><rect x="9" y="2" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg>
+        </div>
+        <div class="card__body">
+          <h2>TEC Assessment Form</h2>
+          <p>Submit and review project assessments for the Technical and Environmental Committee.</p>
+          <span class="card__path">/tec</span>
+        </div>
+        <span class="card__arrow" aria-hidden="true">&#8250;</span>
+      </a>
+      <a href="/legal/" class="card">
+        <div class="card__icon icon-legal">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </div>
+        <div class="card__body">
+          <h2>eLegal</h2>
+          <p>Legal case management, document tracking, and compliance.</p>
+          <span class="card__path">/legal/</span>
+        </div>
+        <span class="card__arrow">&#8250;</span>
+      </a>
+
+    </div>
+
+    <div class="elsewhere">
+      <div class="section-label">Hosted on the public portal, not here</div>
+      <div class="grid">
+
+        <a href="https://applications.mona.uwi.edu/etime/" class="card card--muted">
+          <div class="card__icon icon-etime">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="card__body">
+            <h2>eTimesheet Staff</h2>
+            <p>Staff time tracking, approvals, and attendance reporting.</p>
+          </div>
+          <span class="card__arrow">&#8250;</span>
+        </a>
+
+        <a href="https://applications.mona.uwi.edu/openemr" class="card card--muted">
+          <div class="card__icon icon-health">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          </div>
+          <div class="card__body">
+            <h2>OpenEMR</h2>
+            <p>Health services records and clinical administration.</p>
+          </div>
+          <span class="card__arrow">&#8250;</span>
+        </a>
+
+        <a href="https://applications.mona.uwi.edu/" class="card card--muted">
+          <div class="card__icon icon-portal">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          </div>
+          <div class="card__body">
+            <h2>All applications</h2>
+            <p>The complete MITS applications portal, over HTTPS.</p>
+          </div>
+          <span class="card__arrow">&#8250;</span>
+        </a>
+
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="footer">
+    &copy; 2026 The University of the West Indies &mdash;
+    Mona Information &amp; Technology Services (MITS)<br>
+    Internal host <code>costmod-srv.uwimona.edu.jm</code> &middot;
+    public portal <a href="https://applications.mona.uwi.edu/">applications.mona.uwi.edu</a>
+  </footer>
+
+</body>
+</html>
+

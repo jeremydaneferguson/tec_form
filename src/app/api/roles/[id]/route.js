@@ -1,9 +1,12 @@
+import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 
 const PROTECTED_ROLES = ['admin', 'requestor', 'approver'];
 
 export async function PATCH(request, { params }) {
   try {
+    const denied = await requireAdmin();
+    if (denied) return denied;
     const { id } = await params;
     if (!id) {
       return Response.json({ error: 'Role ID is required' }, { status: 400 });
@@ -76,6 +79,8 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(_request, { params }) {
   try {
+    const denied = await requireAdmin();
+    if (denied) return denied;
     const { id } = await params;
     if (!id) {
       return Response.json({ error: 'Role ID is required' }, { status: 400 });

@@ -1,11 +1,13 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { getSessionUser } from '@/lib/session';
+import { projectScope } from '@/lib/project-access';
 
 export async function GET(req) {
   try {
-    // Fetch all submissions as projects
+    const user = await getSessionUser();
+    if (!user) return Response.json({ error: 'Sign in required' }, { status: 401 });
     const submissions = await prisma.tECSubmission.findMany({
+      where: projectScope(user),
       orderBy: { updatedAt: 'desc' },
     });
 
@@ -29,7 +31,7 @@ export async function GET(req) {
 
     return new Response(JSON.stringify(projects), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
     });
   } catch (error) {
     return new Response(JSON.stringify({ error: 'Failed to fetch projects' }), {

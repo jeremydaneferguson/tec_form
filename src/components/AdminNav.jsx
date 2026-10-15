@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import appPackage from "../../package.json";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -12,6 +13,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
+const appVersion = appPackage.version;
+
 const navItems = [
   { href: "/", label: "TEC Form", icon: LayoutGrid },
   { href: "/projects", label: "Projects", icon: FolderKanban },
@@ -22,6 +25,7 @@ export default function AdminNav({ children, currentUser = "Admin" }) {
   const pathname = usePathname();
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
+  const [userRole, setUserRole] = useState("");
   const [loggedInUser, setLoggedInUser] = useState(currentUser);
   const isLoginPage = pathname === "/login";
 
@@ -31,27 +35,38 @@ export default function AdminNav({ children, currentUser = "Admin" }) {
       return;
     }
 
-    const loggedIn = localStorage.getItem("tecFormLoggedIn") === "true";
-
-    if (!loggedIn) {
-      router.replace("/login");
-      return;
-    }
-
-    const storedUser = localStorage.getItem("tecFormUser");
-    if (storedUser) {
+    let cancelled = false;
+    setIsReady(false);
+    const checkSession = async () => {
       try {
-        const user = JSON.parse(storedUser);
-        setLoggedInUser(user.email || currentUser);
+        const response = await fetch('/tec/api/session', { cache: 'no-store' });
+        if (!response.ok) {
+          if (!cancelled) router.replace('/login');
+          return;
+        }
+        const { user } = await response.json();
+        if (cancelled) return;
+        const role = user.role.trim().toLowerCase();
+        setUserRole(role);
+        setLoggedInUser(user.email);
+        localStorage.setItem('tecFormLoggedIn', 'true');
+        localStorage.setItem('tecFormUser', JSON.stringify(user));
+        if (pathname?.startsWith('/admin') && role !== 'admin') {
+          router.replace('/projects');
+          return;
+        }
+        setIsReady(true);
       } catch {
-        setLoggedInUser(currentUser);
+        if (!cancelled) router.replace('/login');
       }
-    }
+    };
+    checkSession();
+    return () => { cancelled = true; };
+  }, [currentUser, isLoginPage, pathname, router]);
 
-    setIsReady(true);
-  }, [currentUser, isLoginPage, router]);
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const response = await fetch('/tec/api/session', { method: 'DELETE' });
+    if (!response.ok) return;
     localStorage.removeItem("tecFormLoggedIn");
     localStorage.removeItem("tecFormUser");
     localStorage.removeItem("tecFormEmail");
@@ -59,7 +74,14 @@ export default function AdminNav({ children, currentUser = "Admin" }) {
   };
 
   if (isLoginPage) {
-    return children;
+    return (
+      <>
+        {children}
+        <p className="pb-6 text-center text-xs text-[#6a7388]">
+          TEC Portal v{appVersion}
+        </p>
+      </>
+    );
   }
 
   if (!isReady) {
@@ -80,7 +102,10 @@ export default function AdminNav({ children, currentUser = "Admin" }) {
             />
             {/* <p className="text-sm font-semibold text-[#1f2a44]">The University Of The West Indies</p> */}
           </p>
-          <div className="flex items-center gap-2 sm:gap-3">            
+          <div className="flex items-center gap-2 sm:gap-3">
+            <span className="text-xs font-semibold text-[#6a7388]" title="Application version">
+              v{appVersion}
+            </span>
             <button
               type="button"
               className="hidden rounded-xl border border-[#d6d2ca] bg-white px-3 py-2 text-xs font-semibold text-[#2d3750] shadow-sm sm:inline-flex"
@@ -102,7 +127,7 @@ export default function AdminNav({ children, currentUser = "Admin" }) {
       <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-5 px-4 py-4 sm:px-6 sm:py-5 lg:grid-cols-[224px_minmax(0,1fr)] lg:px-8">
         <aside className="overflow-x-auto rounded-2xl border border-[#d9d5cd] bg-[#f5f3ef] p-2.5 shadow-[0_4px_18px_rgba(24,39,75,0.05)] lg:sticky lg:top-20 lg:self-start lg:overflow-visible">
           <nav className="flex min-w-max gap-1.5 lg:block lg:min-w-0 lg:space-y-1.5">
-            {navItems.map((item) => {
+            {navItems.filter((item) => item.href !== "/admin" || userRole === "admin").map((item) => {
               const Icon = item.icon;
               const isActive =
                 item.href === "/"

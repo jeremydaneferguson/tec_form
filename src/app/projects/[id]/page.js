@@ -365,7 +365,7 @@ export default function ProjectDetailsPage() {
       <div className="p-6">
         <p className="mb-4 text-red-600">{error}</p>
         <Link href="/projects" className="text-blue-600 hover:underline">
-          Back to All Projects
+          Back to Projects
         </Link>
       </div>
     );
@@ -404,7 +404,7 @@ export default function ProjectDetailsPage() {
               className="inline-flex items-center gap-2 rounded-xl border border-[#d6d2ca] bg-[#f9f8f6] px-3.5 py-2 text-sm font-semibold text-[#2d3750] transition hover:border-[#991b1e] hover:text-[#991b1e]"
             >
               <ArrowLeft className="h-4 w-4" />
-              All Projects
+              Projects
             </Link>
           </div>
         </div>

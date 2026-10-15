@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/session';
 import { hashPassword } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
@@ -6,6 +7,8 @@ const isValidEmail = (value) => emailPattern.test(String(value || '').trim());
 
 export async function GET() {
   try {
+    const denied = await requireAdmin();
+    if (denied) return denied;
     const users = await prisma.user.findMany({
       select: { id: true, email: true, role: true, department: true },
       orderBy: { email: 'asc' },
@@ -22,6 +25,8 @@ export async function GET() {
 
 export async function POST(request) {
   try {
+    const denied = await requireAdmin();
+    if (denied) return denied;
     const { email, role, department } = await request.json();
 
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
@@ -59,6 +64,8 @@ export async function POST(request) {
 
 export async function PATCH(request) {
   try {
+    const denied = await requireAdmin();
+    if (denied) return denied;
     const { id, email, role, department, password } = await request.json();
 
     const data = {};
@@ -129,6 +136,8 @@ export async function PATCH(request) {
 
 export async function DELETE(request) {
   try {
+    const denied = await requireAdmin();
+    if (denied) return denied;
     const { searchParams } = new URL(request.url);
     let id = searchParams.get('id');
 

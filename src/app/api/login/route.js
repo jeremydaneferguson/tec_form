@@ -1,5 +1,6 @@
 import { verifyPassword } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { createSession } from '@/lib/session';
 
 export async function POST(request) {
   try {
@@ -43,6 +44,7 @@ export async function POST(request) {
     }
 
     const { passwordHash, ...safeUser } = user;
+    await createSession(user.id);
     return Response.json({ user: safeUser }, { status: 200 });
   } catch (error) {
     return Response.json(

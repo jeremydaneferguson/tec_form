@@ -1,15 +1,19 @@
 import { prisma } from '@/lib/prisma';
+import { getSessionUser } from '@/lib/session';
+import { projectScope } from '@/lib/project-access';
 
 export async function GET(_request, { params }) {
   try {
+    const user = await getSessionUser();
+    if (!user) return Response.json({ error: 'Sign in required' }, { status: 401 });
     const { id } = await params;
 
     if (!id) {
       return Response.json({ error: 'Project id is required' }, { status: 400 });
     }
 
-    const submission = await prisma.tECSubmission.findUnique({
-      where: { id },
+    const submission = await prisma.tECSubmission.findFirst({
+      where: { id, ...projectScope(user) },
     });
 
     if (!submission) {
@@ -34,7 +38,7 @@ export async function GET(_request, { params }) {
       formData,
     };
 
-    return Response.json(summary, { status: 200 });
+    return Response.json(summary, { status: 200, headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     return Response.json(
       { error: `Failed to fetch project details: ${error.message}` },
@@ -45,14 +49,16 @@ export async function GET(_request, { params }) {
 
 export async function DELETE(_request, { params }) {
   try {
+    const user = await getSessionUser();
+    if (!user) return Response.json({ error: 'Sign in required' }, { status: 401 });
     const { id } = await params;
 
     if (!id) {
       return Response.json({ error: 'Project id is required' }, { status: 400 });
     }
 
-    const submission = await prisma.tECSubmission.findUnique({
-      where: { id },
+    const submission = await prisma.tECSubmission.findFirst({
+      where: { id, ...projectScope(user) },
     });
 
     if (!submission) {

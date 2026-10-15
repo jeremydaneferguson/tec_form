@@ -70,20 +70,26 @@ function ProjectMeta({ icon: Icon, label, value }) {
 export default function ProjectsPage() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [viewAll, setViewAll] = useState(false);
   const [deletingProjectId, setDeletingProjectId] = useState(null);
 
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await fetch('/tec/api/projects');
+        const sessionResponse = await fetch('/tec/api/session', { cache: 'no-store' });
+        if (!sessionResponse.ok) throw new Error('Please sign in to view projects.');
+        const { user } = await sessionResponse.json();
+        setViewAll(['admin', 'approver'].includes(user.role.trim().toLowerCase()));
+        const response = await fetch('/tec/api/projects', { cache: 'no-store' });
         if (response.ok) {
           const data = await response.json();
           setProjects(data);
         } else {
-          console.error('Failed to fetch projects');
+          setError('Failed to fetch projects. Please try again.');
         }
       } catch (error) {
-        console.error('Error fetching projects:', error);
+        setError(error.message || 'Failed to fetch projects.');
       } finally {
         setLoading(false);
       }
@@ -136,7 +142,7 @@ export default function ProjectsPage() {
               TEC Portfolio
             </p>
             <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#1f2a44]">
-              All Projects
+              {viewAll ? 'All Projects' : 'My Projects'}
             </h1>
             <p className="mt-1 text-sm text-[#6a7388]">
               Review submitted TEC forms, reopen records for edits, and track recent updates.
@@ -148,7 +154,7 @@ export default function ProjectsPage() {
         </div>
       </header>
 
-      {projects.length === 0 ? (
+      {error ? <p role="alert" className="text-red-700">{error}</p> : projects.length === 0 ? (
         <div className="rounded-2xl border border-[#d9d5cd] bg-white p-8 text-center text-sm text-[#6a7388] shadow-sm">
           No projects found.
         </div>

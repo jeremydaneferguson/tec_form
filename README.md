@@ -88,3 +88,23 @@ The form is divided into multiple steps:
 4. Documentation
 5. Reviewing Department
 6. Final Assessment
+
+## Application version
+
+The portal header and login screen display the version from `package.json`.
+`package-lock.json` must contain the same application version.
+
+After a batch of major application changes (new features, workflow changes, or
+access-control changes), increment the major version once:
+
+```bash
+npm run version:major
+```
+
+This advances `1.0.0` to `2.0.0`, then `3.0.0`, and updates both package files
+without creating a Git commit or tag. For small fixes, use
+`npm version patch --no-git-tag-version`. Rebuild or redeploy to display the new
+version. Version increments are based on the changes made, not on each build.
+
+Development output is stored in `.next-dev/`; production builds use `.next/`.
+This keeps build checks from overwriting chunks served by `npm run dev`.

@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/prisma';
+import { getSessionUser } from '@/lib/session';
+import { canViewAllProjects, projectScope } from '@/lib/project-access';
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const telephoneAllowedPattern = /^\+?[\d\s().-]+$/;
@@ -69,9 +71,13 @@ const validateSubmissionFields = ({ email, formData, status, requireEmail }) => 
 // POST: Save form submission
 export async function POST(request) {
   try {
+    const user = await getSessionUser();
+    if (!user) return Response.json({ error: 'Sign in required' }, { status: 401 });
     const body = await request.json();
     const { id, email, formData, status } = body;
-    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const normalizedEmail = canViewAllProjects(user)
+      ? (typeof email === 'string' ? email.trim().toLowerCase() : '')
+      : user.email.trim().toLowerCase();
     const validationErrors = validateSubmissionFields({
       email: normalizedEmail,
       formData,
@@ -87,8 +93,8 @@ export async function POST(request) {
     }
 
     if (id) {
-      const existingSubmission = await prisma.tECSubmission.findUnique({
-        where: { id },
+      const existingSubmission = await prisma.tECSubmission.findFirst({
+        where: { id, ...projectScope(user) },
       });
 
       if (!existingSubmission) {
@@ -101,7 +107,7 @@ export async function POST(request) {
       const submission = await prisma.tECSubmission.update({
         where: { id },
         data: {
-          email: normalizedEmail || existingSubmission.email,
+          email: existingSubmission.email,
           formData: formData || existingSubmission.formData,
           status: status || existingSubmission.status,
           updatedAt: new Date(),
@@ -154,6 +160,8 @@ export async function POST(request) {
 // GET: Retrieve form submission by email
 export async function GET(request) {
   try {
+    const user = await getSessionUser();
+    if (!user) return Response.json({ error: 'Sign in required' }, { status: 401 });
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const email = searchParams.get('email');
@@ -166,11 +174,11 @@ export async function GET(request) {
     }
 
     const submission = id
-      ? await prisma.tECSubmission.findUnique({
-          where: { id },
+      ? await prisma.tECSubmission.findFirst({
+          where: { id, ...projectScope(user) },
         })
       : await prisma.tECSubmission.findFirst({
-          where: { email },
+          where: { AND: [{ email: { equals: email, mode: 'insensitive' } }, projectScope(user)] },
           orderBy: { createdAt: 'desc' },
         });
 
@@ -181,7 +189,7 @@ export async function GET(request) {
       );
     }
 
-    return Response.json(submission);
+    return Response.json(submission, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Error retrieving submission:', error);
     return Response.json(
