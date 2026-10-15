@@ -1,7 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { validateAttachments } from '@/lib/attachments';
 import { getSessionUser } from '@/lib/session';
-import { canViewAllProjects, projectScope } from '@/lib/project-access';
+import { projectScope } from '@/lib/project-access';
+import { canReview, requestorData, reviewData, requestorCompletionErrors, REVIEW_DEPARTMENT_STEPS } from '@/lib/workflow';
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const telephoneAllowedPattern = /^\+?[\d\s().-]+$/;
@@ -69,92 +70,59 @@ const validateSubmissionFields = ({ email, formData, status, requireEmail }) => 
   return errors;
 };
 
-// POST: Save form submission
+// Requestors submit steps 1–2; reviewers assess submitted records in steps 3–6.
 export async function POST(request) {
   try {
     const user = await getSessionUser();
     if (!user) return Response.json({ error: 'Sign in required' }, { status: 401 });
-    const body = await request.json();
-    const { id, email, formData, status } = body;
-    const normalizedEmail = canViewAllProjects(user)
-      ? (typeof email === 'string' ? email.trim().toLowerCase() : '')
-      : user.email.trim().toLowerCase();
-    const validationErrors = validateSubmissionFields({
-      email: normalizedEmail,
-      formData,
-      status,
-      requireEmail: !id,
-    });
-
-    if (validationErrors.length > 0) {
-      return Response.json(
-        { error: validationErrors.join('. ') },
-        { status: 400 }
-      );
+    const { id, formData = {}, status, workflow } = await request.json();
+    if (!formData || typeof formData !== 'object' || Array.isArray(formData)) {
+      return Response.json({ error: 'Form data must be an object' }, { status: 400 });
     }
-
-    if (id) {
-      const existingSubmission = await prisma.tECSubmission.findFirst({
-        where: { id, ...projectScope(user) },
-      });
-
-      if (!existingSubmission) {
-        return Response.json(
-          { error: 'Submission not found' },
-          { status: 404 }
-        );
+    const reviewing = workflow === 'approval';
+    if (reviewing && !canReview(user)) {
+      return Response.json({ error: 'Approver access required' }, { status: 403 });
+    }
+    if (reviewing && !id) return Response.json({ error: 'Select a submitted form to assess' }, { status: 400 });
+    const nextStatus = status || (reviewing ? 'submitted' : 'draft');
+    if (!(reviewing ? ['submitted', 'approved'] : ['draft', 'submitted']).includes(nextStatus)) {
+      return Response.json({ error: 'This status transition is not allowed' }, { status: 403 });
+    }
+    const ownerScope = { email: { equals: user.email, mode: 'insensitive' } };
+    const existing = id
+      ? await prisma.tECSubmission.findFirst({ where: { id, ...(reviewing ? {} : ownerScope) } })
+      : await prisma.tECSubmission.findFirst({ where: { ...ownerScope, status: 'draft' }, orderBy: { createdAt: 'desc' } });
+    if (id && !existing) return Response.json({ error: 'Submission not found' }, { status: 404 });
+    if (existing && !(reviewing ? ['submitted', 'reviewed'] : ['draft']).includes(existing.status)) {
+      return Response.json({ error: reviewing ? 'Only pending submissions can be assessed' : 'Submitted forms are read-only. View the project to track its approval.' }, { status: 409 });
+    }
+    const data = reviewing
+      ? { ...requestorData(existing.formData), ...reviewData(formData) }
+      : requestorData(formData);
+    const errors = validateSubmissionFields({ email: user.email, formData: data, status: nextStatus, requireEmail: true });
+    if (!reviewing && nextStatus === 'submitted') errors.push(...requestorCompletionErrors(data));
+    if (reviewing && nextStatus === 'approved') {
+      if (!Object.hasOwn(REVIEW_DEPARTMENT_STEPS, data.reviewingDepartment || '')) errors.push('Select a reviewing department');
+      const prefix = `deptReview_${String(data.reviewingDepartment || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')}_`;
+      if (!Object.entries(data).some(([key, value]) => key.startsWith(prefix) && value !== '' && value !== null && value !== undefined && (!Array.isArray(value) || value.length > 0))) {
+        errors.push('Complete the departmental assessment before approving');
       }
-
-      const submission = await prisma.tECSubmission.update({
-        where: { id },
-        data: {
-          email: existingSubmission.email,
-          formData: formData || existingSubmission.formData,
-          status: status || existingSubmission.status,
-          updatedAt: new Date(),
-        },
-      });
-
-      return Response.json(submission, { status: 200 });
+      data.approval = { approvedBy: user.email, approvedAt: new Date().toISOString() };
     }
-
-    // Check if submission with this email already exists
-    const existingSubmission = await prisma.tECSubmission.findFirst({
-      where: { email: normalizedEmail },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    let submission;
-    const nextStatus = status || 'draft';
-
-    if (existingSubmission && existingSubmission.status === 'draft') {
-      // Update existing draft
-      submission = await prisma.tECSubmission.update({
-        where: { id: existingSubmission.id },
-        data: {
-          formData: formData || existingSubmission.formData,
-          status: nextStatus,
-          updatedAt: new Date(),
-        },
+    if (errors.length) return Response.json({ error: errors.join('. ') }, { status: 400 });
+    if (existing) {
+      const result = await prisma.tECSubmission.updateMany({
+        where: { id: existing.id, status: existing.status, updatedAt: existing.updatedAt },
+        data: { formData: data, status: nextStatus, updatedAt: new Date() },
       });
-    } else {
-      // Create new submission
-      submission = await prisma.tECSubmission.create({
-        data: {
-          email: normalizedEmail,
-          formData: formData || {},
-          status: nextStatus,
-        },
-      });
+      if (!result.count) return Response.json({ error: 'This form changed. Reload before saving.' }, { status: 409 });
+      return Response.json(await prisma.tECSubmission.findFirst({ where: { id: existing.id } }));
     }
-
+    const submission = await prisma.tECSubmission.create({ data: { email: user.email.toLowerCase(), formData: data, status: nextStatus } });
     return Response.json(submission, { status: 201 });
   } catch (error) {
     console.error('Error saving submission:', error);
-    return Response.json(
-      { error: 'Failed to save submission' },
-      { status: 500 }
-    );
+    return Response.json({ error: 'Failed to save submission' }, { status: 500 });
   }
 }
 

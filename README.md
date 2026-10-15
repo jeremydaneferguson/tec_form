@@ -114,3 +114,12 @@ Existing Building Area and Proposed Building Area each accept one optional file
 when editing, and are available in the project summary to authorized viewers.
 The current implementation stores attachment contents in the submission's JSON
 data, so attachment sizes count toward database and request storage usage.
+
+## Requestor and approval workflow
+
+Requestors complete steps 1–2, save drafts, and submit for approval. Submitted
+proposals are read-only to Requestors. Approvers and Admins use the Approvals
+menu to assess pending forms in steps 3–6, select a reviewing department, save
+review progress, and approve the completed assessment. The server preserves the
+Requestor's submitted answers and records the approving account and timestamp.
+Approved forms remain available in Projects and the Approved section of Approvals.

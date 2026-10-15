@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { getSessionUser } from '@/lib/session';
-import { projectScope } from '@/lib/project-access';
+import { projectScope, canViewAllProjects } from '@/lib/project-access';
 
 export async function GET(req) {
   try {
@@ -17,6 +17,9 @@ export async function GET(req) {
 
       return {
         id: submission.id,
+        canEdit: submission.status === 'draft' && submission.email.toLowerCase() === user.email.toLowerCase(),
+        canAssess: canViewAllProjects(user) && ['submitted', 'reviewed'].includes(submission.status),
+        canDelete: submission.status === 'draft' || user.role.trim().toLowerCase() === 'admin',
         name: formData.projectName || submission.email,
         description: formData.projectType || '',
         projectType: formData.projectType || 'Not specified',

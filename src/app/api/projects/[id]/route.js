@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { getSessionUser } from '@/lib/session';
-import { projectScope } from '@/lib/project-access';
+import { projectScope, canViewAllProjects } from '@/lib/project-access';
 
 export async function GET(_request, { params }) {
   try {
@@ -24,6 +24,8 @@ export async function GET(_request, { params }) {
 
     const summary = {
       id: submission.id,
+      canEdit: submission.status === 'draft' && submission.email.toLowerCase() === user.email.toLowerCase(),
+      canAssess: canViewAllProjects(user) && ['submitted', 'reviewed'].includes(submission.status),
       email: submission.email,
       status: submission.status,
       createdAt: submission.createdAt,
@@ -63,6 +65,10 @@ export async function DELETE(_request, { params }) {
 
     if (!submission) {
       return Response.json({ error: 'Project not found' }, { status: 404 });
+    }
+
+    if (submission.status !== 'draft' && user.role.trim().toLowerCase() !== 'admin') {
+      return Response.json({ error: 'Submitted forms cannot be deleted' }, { status: 409 });
     }
 
     await prisma.tECSubmission.delete({

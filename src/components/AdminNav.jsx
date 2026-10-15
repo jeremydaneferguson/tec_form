@@ -18,6 +18,7 @@ const appVersion = appPackage.version;
 const navItems = [
   { href: "/", label: "TEC Form", icon: LayoutGrid },
   { href: "/projects", label: "Projects", icon: FolderKanban },
+  { href: "/approvals", label: "Approvals", icon: FileCheck },
   { href: "/admin", label: "Admin", icon: ShieldCheck },
 ];
 
@@ -51,7 +52,7 @@ export default function AdminNav({ children, currentUser = "Admin" }) {
         setLoggedInUser(user.email);
         localStorage.setItem('tecFormLoggedIn', 'true');
         localStorage.setItem('tecFormUser', JSON.stringify(user));
-        if (pathname?.startsWith('/admin') && role !== 'admin') {
+        if ((pathname?.startsWith('/admin') && role !== 'admin') || (pathname?.startsWith('/approvals') && !['admin', 'approver'].includes(role))) {
           router.replace('/projects');
           return;
         }
@@ -127,7 +128,7 @@ export default function AdminNav({ children, currentUser = "Admin" }) {
       <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-5 px-4 py-4 sm:px-6 sm:py-5 lg:grid-cols-[224px_minmax(0,1fr)] lg:px-8">
         <aside className="overflow-x-auto rounded-2xl border border-[#d9d5cd] bg-[#f5f3ef] p-2.5 shadow-[0_4px_18px_rgba(24,39,75,0.05)] lg:sticky lg:top-20 lg:self-start lg:overflow-visible">
           <nav className="flex min-w-max gap-1.5 lg:block lg:min-w-0 lg:space-y-1.5">
-            {navItems.filter((item) => item.href !== "/admin" || userRole === "admin").map((item) => {
+            {navItems.filter((item) => (item.href !== "/admin" || userRole === "admin") && (item.href !== "/approvals" || ["admin", "approver"].includes(userRole))).map((item) => {
               const Icon = item.icon;
               const isActive =
                 item.href === "/"

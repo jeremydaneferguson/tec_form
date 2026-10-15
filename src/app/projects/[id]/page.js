@@ -28,6 +28,7 @@ const OVERVIEW_FORM_KEYS = new Set([
   'email',
   'ownerEmail',
   'status',
+  'approval',
 ]);
 
 const ASSESSMENT_ORDER = [
@@ -126,7 +127,7 @@ function slugify(value = '') {
 function getStatusClasses(status = '') {
   const normalized = status.toLowerCase();
 
-  if (normalized === 'submitted') {
+  if (normalized === 'submitted' || normalized === 'approved') {
     return 'border-emerald-200 bg-emerald-50 text-emerald-700';
   }
 
@@ -394,6 +395,7 @@ export default function ProjectDetailsPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
+            {project.canEdit && (
             <Link
               href={`/?editSubmissionId=${project.id}`}
               className="inline-flex items-center gap-2 rounded-xl border border-[#d6d2ca] bg-white px-3.5 py-2 text-sm font-semibold text-[#2d3750] transition hover:border-[#991b1e] hover:text-[#991b1e]"
@@ -401,6 +403,8 @@ export default function ProjectDetailsPage() {
               <Edit2 className="h-4 w-4" />
               Edit form
             </Link>
+            )}
+            {project.canAssess && <Link href={`/approvals/${project.id}`} className="rounded-xl bg-[#991b1e] px-3.5 py-2 text-sm font-semibold text-white">Assess form</Link>}
             <Link
               href="/projects"
               className="inline-flex items-center gap-2 rounded-xl border border-[#d6d2ca] bg-[#f9f8f6] px-3.5 py-2 text-sm font-semibold text-[#2d3750] transition hover:border-[#991b1e] hover:text-[#991b1e]"
@@ -526,6 +530,10 @@ export default function ProjectDetailsPage() {
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <DetailItem label="Project Type" value={project.projectType} />
           <DetailItem label="Reviewing Department" value={project.reviewingDepartment} />
+          {project.formData?.approval && <>
+            <DetailItem label="Approved By" value={project.formData.approval.approvedBy} />
+            <DetailItem label="Approved On" value={formatDate(project.formData.approval.approvedAt, true)} />
+          </>}
           <DetailItem label="Owner Email" value={project.email} icon={Mail} />
           <DetailItem label="Submitted Record" value={formatDate(project.createdAt, true)} />
         </div>

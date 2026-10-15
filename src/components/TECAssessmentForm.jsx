@@ -1,11 +1,16 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { REVIEW_DEPARTMENT_STEPS, REQUESTOR_REQUIRED_FIELDS, canReview } from '@/lib/workflow';
 import SectionAttachment from '@/components/SectionAttachment';
 import { ATTACHMENT_SECTIONS } from '@/lib/attachments';
 import { ChevronLeft, ChevronRight, ClipboardCheck, FileDown, Save, Send } from 'lucide-react';
 
-export default function TECAssessmentForm() {
+export default function TECAssessmentForm({ approvalId = null }) {
+  const isApproval = Boolean(approvalId);
+  const [workflowReady, setWorkflowReady] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const router = useRouter();
     const formRef = useRef(null);
     const progressHeaderRef = useRef(null);
@@ -29,7 +34,7 @@ export default function TECAssessmentForm() {
     const [submissionStatus, setSubmissionStatus] = useState('draft');
     const totalSteps = 17;
     const sharedWorkflowSteps = 5;
-    const displayedTotalSteps = sharedWorkflowSteps + 1;
+    const displayedTotalSteps = isApproval ? 6 : 2;
     const displayedCurrentStep = currentStep <= sharedWorkflowSteps ? currentStep : displayedTotalSteps;
     const displayedProgress = Math.round((displayedCurrentStep / displayedTotalSteps) * 100);
     const sharedStepLabels = {
@@ -43,19 +48,7 @@ export default function TECAssessmentForm() {
       ? sharedStepLabels[currentStep]
       : `${formData.reviewingDepartment || 'Department'} review`;
 
-    const reviewingDepartmentStepMap = {
-      EMD: 6,
-      'Safety & Emergency': 7,
-      MITS: 8,
-      'Human Res Mgt Div': 9,
-      BDO: 10,
-      CPO: 12,
-      BURSARY: 13,
-      'Campus Security Office': 14,
-      'Office - Planning & Inst Research': 15,
-      'Campus Legal Office': 16,
-      Secretariat: 17,
-    };
+    const reviewingDepartmentStepMap = REVIEW_DEPARTMENT_STEPS;
 
     const approvalRecommendationRows = [
       'Finance & General Purpose',
@@ -256,55 +249,49 @@ export default function TECAssessmentForm() {
         `;
     };
 
-    // Load saved form data on mount
+    // Verify the server session before loading either workflow.
     useEffect(() => {
-        const loadFormData = async () => {
-            const editSubmissionId = new URLSearchParams(window.location.search).get('editSubmissionId');
-            if (editSubmissionId) {
-                try {
-                    const response = await fetch(`/tec/api/submissions?id=${encodeURIComponent(editSubmissionId)}`, {
-                        cache: 'no-store',
-                    });
-                    if (response.ok) {
-                        const submission = await response.json();
-                        setSubmissionId(submission.id);
-                        setSubmissionStatus(submission.status || 'draft');
-                        setEmail(submission.email || '');
-                        setFormData(submission.formData || {});
-                        setSaveStatus('Editing existing submission');
-                        setTimeout(() => setSaveStatus(''), 2000);
-                    } else {
-                        setSaveStatus('Unable to load submission for editing');
-                    }
-                } catch (error) {
-                    console.error('Error loading submission for editing:', error);
-                    setSaveStatus('Error loading submission for editing');
-                }
-                return;
+      let cancelled = false;
+      const load = async () => {
+        try {
+          const sessionResponse = await fetch('/tec/api/session', { cache: 'no-store' });
+          if (!sessionResponse.ok) { router.replace('/login'); return; }
+          const { user } = await sessionResponse.json();
+          if (isApproval && !canReview(user)) { router.replace('/projects'); return; }
+          const editId = approvalId || new URLSearchParams(window.location.search).get('editSubmissionId');
+          const url = editId ? `/tec/api/submissions?id=${encodeURIComponent(editId)}` : `/tec/api/submissions?email=${encodeURIComponent(user.email)}`;
+          const response = await fetch(url, { cache: 'no-store' });
+          if (cancelled) return;
+          setEmail(user.email);
+          if (response.ok) {
+            const record = await response.json();
+            if (cancelled) return;
+            if (editId && ((isApproval && !['submitted', 'reviewed'].includes(record.status)) || (!isApproval && (record.status !== 'draft' || record.email.toLowerCase() !== user.email.toLowerCase())))) {
+              router.replace(`/projects/${record.id}`);
+              return;
             }
-
-            const savedEmail = localStorage.getItem('tecFormEmail');
-            if (savedEmail) {
-                setEmail(savedEmail);
-                try {
-                    const response = await fetch(`/tec/api/submissions?email=${encodeURIComponent(savedEmail)}`);
-                    if (response.ok) {
-                        const submission = await response.json();
-                        setSubmissionId(submission.id || '');
-                        setSubmissionStatus(submission.status || 'draft');
-                        setFormData(submission.formData || {});
-                        setSaveStatus('Form loaded from database');
-                        setTimeout(() => setSaveStatus(''), 2000);
-                    }
-                } catch (error) {
-                    console.error('Error loading form data:', error);
-                }
+            if (editId || record.status === 'draft') {
+              setSubmissionId(record.id);
+              setSubmissionStatus(record.status);
+              setEmail(record.email);
+              setFormData(record.formData || {});
             }
-        };
-        loadFormData();
-    }, []);
+          } else if (editId || response.status !== 404) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.error || 'Unable to load form');
+          }
+          if (isApproval) setCurrentStep(3);
+          setWorkflowReady(true);
+        } catch (error) {
+          if (!cancelled) setLoadError(error.message || 'Unable to load form');
+        }
+      };
+      load();
+      return () => { cancelled = true; };
+    }, [approvalId, isApproval, router]);
 
     const fieldLabels = {
+      ...REQUESTOR_REQUIRED_FIELDS,
       email: 'Email',
       date: 'Date',
       contactTelephone: 'Contact Telephone',
@@ -382,7 +369,7 @@ export default function TECAssessmentForm() {
         return options.requireReviewingDepartment;
       }
 
-      return actionLabel.includes('submitting') || currentStep === 4 || currentStep === 5;
+      return isApproval && (actionLabel.includes('approving') || currentStep === 4 || currentStep === 5);
     };
 
     const validateRequiredFields = (actionLabel = 'submit', options = {}) => {
@@ -391,6 +378,11 @@ export default function TECAssessmentForm() {
           requireReviewingDepartment: shouldRequireReviewingDepartment(actionLabel, options),
         };
         const errors = getFormValidationErrors(validationOptions);
+        if (!isApproval && actionLabel.includes('submitting')) {
+          for (const [field, label] of Object.entries(REQUESTOR_REQUIRED_FIELDS)) {
+            if (typeof formData[field] !== 'string' || !formData[field].trim()) errors[field] = `${label} is required.`;
+          }
+        }
         const invalidFields = Object.keys(errors);
         setValidationErrors(errors);
 
@@ -423,9 +415,9 @@ export default function TECAssessmentForm() {
           setSaveStatus('Please wait for attachments to finish reading before saving.');
           return false;
         }
-        const nextStatus = status || (submissionId ? submissionStatus : 'draft');
+        const nextStatus = status || (isApproval ? 'submitted' : 'draft');
         const validationContext = nextStatus === 'submitted' && redirectToThankYou ? 'submitting the form' : 'saving the form';
-        const nextRequireReviewingDepartment = requireReviewingDepartment ?? nextStatus === 'submitted';
+        const nextRequireReviewingDepartment = isApproval && (requireReviewingDepartment ?? nextStatus === 'approved');
 
         if (validate && !validateRequiredFields(validationContext, { requireReviewingDepartment: nextRequireReviewingDepartment })) {
         return false;
@@ -438,6 +430,7 @@ export default function TECAssessmentForm() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     id: submissionId || undefined,
+                    workflow: isApproval ? 'approval' : 'requestor',
                     email: email.trim(),
                   formData,
                   status: nextStatus,
@@ -449,20 +442,23 @@ export default function TECAssessmentForm() {
                 setSubmissionId(submission.id || submissionId);
                 setSubmissionStatus(submission.status || nextStatus);
 
-                if (status === 'submitted') {
+                if (status === 'approved') {
+                  router.push('/approvals');
+                } else if (status === 'submitted') {
                   localStorage.removeItem('tecFormEmail');
                   setSaveStatus('Form submitted successfully');
                   if (redirectToThankYou) {
                     router.push('/thank-you');
                   }
                 } else {
-                  localStorage.setItem('tecFormEmail', email.trim());
+                  if (!isApproval) localStorage.setItem('tecFormEmail', email.trim());
                   setSaveStatus(submissionId ? 'Form changes saved successfully' : 'Form saved successfully');
                   setTimeout(() => setSaveStatus(''), 2000);
                 }
                 return true;
             } else {
-                setSaveStatus(status === 'submitted' ? 'Error submitting form' : 'Error saving form');
+                const payload = await response.json().catch(() => ({}));
+                setSaveStatus(payload.error || 'Error saving form');
             }
         } catch (error) {
             console.error('Error saving form:', error);
@@ -664,43 +660,22 @@ export default function TECAssessmentForm() {
       return () => window.cancelAnimationFrame(frame);
     }, [currentStep]);
 
-    const nextStep = () => {
-        if (currentStep < totalSteps) {
-            const requireReviewingDepartment = currentStep === 4 || currentStep === 5;
-
-            if (!validateRequiredFields('continuing', { requireReviewingDepartment })) {
-                return;
-            }
-
-            if (formData.reviewingDepartment === 'MITS' && currentStep === reviewingDepartmentStepMap['MITS']) {
-                submitForm();
-            } else if (currentStep === 5) {
-                setCurrentStep(reviewingDepartmentStepMap[formData.reviewingDepartment] || 6);
-                saveFormData({ validate: true, requireReviewingDepartment: true });
-            } else {
-                setCurrentStep(currentStep + 1);
-                saveFormData({ validate: requireReviewingDepartment, requireReviewingDepartment });
-            }
-        }
+    const nextStep = async () => {
+      if (!isApproval && currentStep >= 2) return;
+      const saved = await saveFormData({ validate: true, requireReviewingDepartment: isApproval && currentStep >= 4 });
+      if (!saved) return;
+      setCurrentStep(currentStep === 5 ? reviewingDepartmentStepMap[formData.reviewingDepartment] : currentStep + 1);
     };
 
     const prevStep = () => {
-        if (currentStep > 1) {
-        if (currentStep >= 6 && currentStep <= 17) {
-          setCurrentStep(5);
-          return;
-        }
-
-            setCurrentStep(currentStep - 1);
-        }
+      const minimum = isApproval ? 3 : 1;
+      if (currentStep <= minimum) return;
+      setCurrentStep(currentStep >= 6 ? 5 : currentStep - 1);
     };
 
     const submitForm = async () => {
-      if (!validateRequiredFields('submitting the form')) {
-        return;
-      }
-
-      await saveFormData({ status: 'submitted', redirectToThankYou: true });
+      if (!validateRequiredFields(isApproval ? 'approving the form' : 'submitting the form', { requireReviewingDepartment: isApproval })) return;
+      await saveFormData({ status: isApproval ? 'approved' : 'submitted', redirectToThankYou: !isApproval, requireReviewingDepartment: isApproval });
     };
 
     const exportAsPdf = async () => {
@@ -3144,6 +3119,9 @@ export default function TECAssessmentForm() {
       }
     };
 
+    if (loadError) return <p role="alert" className="p-6 text-red-700">{loadError}</p>;
+    if (!workflowReady) return <p className="p-6 text-sm text-[#6a7388]">Loading form...</p>;
+
     return (
       <div className="tec-content-wrap mx-auto max-w-[1120px] space-y-5 pb-8">
         <div
@@ -3179,6 +3157,7 @@ export default function TECAssessmentForm() {
           </div>
         </div>
 
+        {isApproval && <div className="mb-4 rounded-xl border bg-white p-4 text-sm">Assessing a submitted proposal. <Link className="font-semibold text-[#991b1e] underline" href={`/projects/${approvalId}`} target="_blank" rel="noreferrer">View Requestor’s completed steps 1–2</Link></div>}
         <form ref={formRef} className="tec-form space-y-4" onSubmit={(e) => e.preventDefault()} onChange={handleFormFieldChange}>
           <div
             key={currentStep}
@@ -3194,7 +3173,7 @@ export default function TECAssessmentForm() {
               </div>
             )}
 
-            {currentStep > 1 && (
+            {currentStep > (isApproval ? 3 : 1) && (
               <button
                 type="button"
                 onClick={prevStep}
@@ -3208,7 +3187,7 @@ export default function TECAssessmentForm() {
 
             <button
               type="button"
-              onClick={() => saveFormData({ requireReviewingDepartment: currentStep === 4 })}
+              onClick={() => saveFormData({ requireReviewingDepartment: isApproval && currentStep === 4 })}
               disabled={isSaving || readingAttachmentCount > 0}
               className="tec-action-button inline-flex items-center gap-2 rounded-xl border border-[#d6d2ca] bg-[#f4f2ef] px-4 py-2.5 text-sm font-semibold text-[#2f3a54] transition hover:border-[#9a2a25] hover:text-[#9a2a25] disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -3216,7 +3195,7 @@ export default function TECAssessmentForm() {
               {isSaving ? 'Saving...' : 'Save'}
             </button>
 
-            {currentStep === totalSteps && (
+            {isApproval && currentStep >= 6 && (
               <button
                 type="button"
                 onClick={exportAsPdf}
@@ -3229,7 +3208,7 @@ export default function TECAssessmentForm() {
             )}
 
             {/* Show 'Next' only on steps 1–5; show 'Submit & Save' on department/Secretariat steps (6–17) */}
-            {currentStep <= 5 && (
+            {(isApproval ? currentStep <= 5 : currentStep < 2) && (
               <button
                 type="button"
                 onClick={nextStep}
@@ -3240,7 +3219,7 @@ export default function TECAssessmentForm() {
                 <ChevronRight className="h-4 w-4" />
               </button>
             )}
-            {currentStep >= 6 && currentStep <= totalSteps && (
+            {(isApproval ? currentStep >= 6 : currentStep === 2) && (
               <button
                 type="button"
                 onClick={submitForm}
@@ -3248,7 +3227,7 @@ export default function TECAssessmentForm() {
                 className="tec-action-button inline-flex items-center gap-2 rounded-xl bg-[#991b1e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#7f1719]"
               >
                 <Send className="h-4 w-4" />
-                 Save & Submit
+                 {isApproval ? 'Approve form' : 'Submit for approval'}
               </button>
             )}
           </div>
