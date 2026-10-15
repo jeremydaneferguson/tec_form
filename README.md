@@ -108,3 +108,9 @@ version. Version increments are based on the changes made, not on each build.
 
 Development output is stored in `.next-dev/`; production builds use `.next/`.
 This keeps build checks from overwriting chunks served by `npm run dev`.
+
+Existing Building Area and Proposed Building Area each accept one optional file
+(up to 5 MB). Attachments save with the submission, can be downloaded or removed
+when editing, and are available in the project summary to authorized viewers.
+The current implementation stores attachment contents in the submission's JSON
+data, so attachment sizes count toward database and request storage usage.

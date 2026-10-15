@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { validateAttachments } from '@/lib/attachments';
 import { getSessionUser } from '@/lib/session';
 import { canViewAllProjects, projectScope } from '@/lib/project-access';
 
@@ -42,7 +43,7 @@ const getFormValue = (formData, fieldName) =>
   typeof formData?.[fieldName] === 'string' ? formData[fieldName].trim() : '';
 
 const validateSubmissionFields = ({ email, formData, status, requireEmail }) => {
-  const errors = [];
+  const errors = validateAttachments(formData);
   const date = getFormValue(formData, 'date');
   const contactTelephone = getFormValue(formData, 'contactTelephone');
   const isSubmitting = status === 'submitted';

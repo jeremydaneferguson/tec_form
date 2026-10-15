@@ -1,6 +1,8 @@
 "use client";
 
 import Link from 'next/link';
+import SectionAttachment from '@/components/SectionAttachment';
+import { ATTACHMENT_SECTIONS } from '@/lib/attachments';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -270,7 +272,7 @@ export default function ProjectDetailsPage() {
       : '';
 
     const filteredEntries = Object.entries(project.formData)
-      .filter(([key]) => !OVERVIEW_FORM_KEYS.has(key))
+      .filter(([key]) => !OVERVIEW_FORM_KEYS.has(key) && !Object.hasOwn(ATTACHMENT_SECTIONS, key))
       .filter(([, value]) => value !== undefined && value !== null && value !== '')
       .map(([key, value]) => ({ key, rawValue: value }));
 
@@ -504,6 +506,20 @@ export default function ProjectDetailsPage() {
           )}
         </div>
       </section>
+
+      {Object.keys(ATTACHMENT_SECTIONS).some((key) => project.formData?.[key]) && (
+        <section className="rounded-2xl border border-[#d9d5cd] bg-white p-5 shadow-sm">
+          <h2 className="text-lg font-bold text-[#1f2a44]">Building Area Attachments</h2>
+          <div className="mt-4 space-y-4">
+            {Object.entries(ATTACHMENT_SECTIONS).map(([key, label]) => project.formData?.[key] && (
+              <div key={key}>
+                <h3 className="font-semibold text-[#1f2a44]">{label}</h3>
+                <SectionAttachment label={label} value={project.formData[key]} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="rounded-2xl border border-[#d9d5cd] bg-white p-5 shadow-sm">
         <h2 className="text-lg font-bold text-[#1f2a44]">Project Context</h2>

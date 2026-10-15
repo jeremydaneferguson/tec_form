@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import SectionAttachment from '@/components/SectionAttachment';
+import { ATTACHMENT_SECTIONS } from '@/lib/attachments';
 import { ChevronLeft, ChevronRight, ClipboardCheck, FileDown, Save, Send } from 'lucide-react';
 
 export default function TECAssessmentForm() {
@@ -11,6 +13,13 @@ export default function TECAssessmentForm() {
     const [currentStep, setCurrentStep] = useState(1);
     const [formData, setFormData] = useState({});
     const [isSaving, setIsSaving] = useState(false);
+    const readingAttachmentsRef = useRef(new Set());
+    const [readingAttachmentCount, setReadingAttachmentCount] = useState(0);
+    const setAttachmentReading = (field, reading) => {
+      if (reading) readingAttachmentsRef.current.add(field);
+      else readingAttachmentsRef.current.delete(field);
+      setReadingAttachmentCount(readingAttachmentsRef.current.size);
+    };
     const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [otherSelections, setOtherSelections] = useState({});
     const [saveStatus, setSaveStatus] = useState('');
@@ -178,7 +187,7 @@ export default function TECAssessmentForm() {
     const buildExportMarkup = () => {
         const summaryEntries = [
             ['Email', email],
-            ...Object.entries(formData).map(([field, value]) => [formatFieldLabel(field), value])
+            ...Object.entries(formData).map(([field, value]) => [formatFieldLabel(field), Object.hasOwn(ATTACHMENT_SECTIONS, field) ? (value?.name || 'Not provided') : value])
         ].filter(([, value]) => value !== undefined && value !== null && value !== '');
 
         const rows = summaryEntries.length > 0
@@ -410,6 +419,10 @@ export default function TECAssessmentForm() {
 
     // Save form data to database
     const saveFormData = async ({ status, redirectToThankYou = false, validate = true, requireReviewingDepartment } = {}) => {
+        if (readingAttachmentsRef.current.size > 0) {
+          setSaveStatus('Please wait for attachments to finish reading before saving.');
+          return false;
+        }
         const nextStatus = status || (submissionId ? submissionStatus : 'draft');
         const validationContext = nextStatus === 'submitted' && redirectToThankYou ? 'submitting the form' : 'saving the form';
         const nextRequireReviewingDepartment = requireReviewingDepartment ?? nextStatus === 'submitted';
@@ -1050,6 +1063,13 @@ export default function TECAssessmentForm() {
                         defaultValue={getFieldDefaultValue('existingBuildingArea')}
                         className="w-full p-2 border rounded"
                       />
+                    <SectionAttachment
+                      label="Existing Building Area"
+                      value={formData.existingBuildingAreaAttachment}
+                      onChange={(file) => updateField('existingBuildingAreaAttachment', file)}
+                      onReadingChange={(reading) => setAttachmentReading('existingBuildingArea', reading)}
+                      disabled={isSaving || readingAttachmentCount > 0}
+                    />
                     </div>
                     <div>
                       <label className="block mb-1">
@@ -1061,6 +1081,13 @@ export default function TECAssessmentForm() {
                       required
                       defaultValue={getFieldDefaultValue('proposedBuildingArea')}
                       className="w-full p-2 border rounded"
+                    />
+                    <SectionAttachment
+                      label="Proposed Building Area"
+                      value={formData.proposedBuildingAreaAttachment}
+                      onChange={(file) => updateField('proposedBuildingAreaAttachment', file)}
+                      onReadingChange={(reading) => setAttachmentReading('proposedBuildingArea', reading)}
+                      disabled={isSaving || readingAttachmentCount > 0}
                     />
                   </div>
                 </div>
@@ -3171,6 +3198,7 @@ export default function TECAssessmentForm() {
               <button
                 type="button"
                 onClick={prevStep}
+                disabled={isSaving || readingAttachmentCount > 0}
                 className="tec-action-button inline-flex items-center gap-2 rounded-xl border border-[#c8c2b8] bg-white px-4 py-2.5 text-sm font-semibold text-[#2f3a54] transition hover:border-[#9a2a25] hover:text-[#9a2a25]"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -3181,7 +3209,7 @@ export default function TECAssessmentForm() {
             <button
               type="button"
               onClick={() => saveFormData({ requireReviewingDepartment: currentStep === 4 })}
-              disabled={isSaving}
+              disabled={isSaving || readingAttachmentCount > 0}
               className="tec-action-button inline-flex items-center gap-2 rounded-xl border border-[#d6d2ca] bg-[#f4f2ef] px-4 py-2.5 text-sm font-semibold text-[#2f3a54] transition hover:border-[#9a2a25] hover:text-[#9a2a25] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Save className="h-4 w-4" />
@@ -3192,7 +3220,7 @@ export default function TECAssessmentForm() {
               <button
                 type="button"
                 onClick={exportAsPdf}
-                disabled={isSaving || isExportingPdf}
+                disabled={isSaving || isExportingPdf || readingAttachmentCount > 0}
                 className="tec-action-button inline-flex items-center gap-2 rounded-xl border border-[#d6d2ca] bg-white px-4 py-2.5 text-sm font-semibold text-[#2f3a54] transition hover:border-[#9a2a25] hover:text-[#9a2a25] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <FileDown className="h-4 w-4" />
@@ -3205,6 +3233,7 @@ export default function TECAssessmentForm() {
               <button
                 type="button"
                 onClick={nextStep}
+                disabled={isSaving || readingAttachmentCount > 0}
                 className={`${currentStep === 1 ? 'ml-auto' : ''} tec-action-button inline-flex items-center gap-2 rounded-xl bg-[#991b1e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#7f1719]`}
               >
                 Next
@@ -3215,6 +3244,7 @@ export default function TECAssessmentForm() {
               <button
                 type="button"
                 onClick={submitForm}
+                disabled={isSaving || readingAttachmentCount > 0}
                 className="tec-action-button inline-flex items-center gap-2 rounded-xl bg-[#991b1e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#7f1719]"
               >
                 <Send className="h-4 w-4" />
