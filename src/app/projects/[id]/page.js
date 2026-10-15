@@ -1,6 +1,7 @@
 "use client";
 
 import Link from 'next/link';
+import ProjectFormDetails from '@/components/ProjectFormDetails';
 import SectionAttachment from '@/components/SectionAttachment';
 import { ATTACHMENT_SECTIONS } from '@/lib/attachments';
 import { useParams } from 'next/navigation';
@@ -288,6 +289,7 @@ export default function ProjectDetailsPage() {
     const generalRows = filteredEntries
       .filter(({ key }) => !key.startsWith('deptReview_'))
       .map(({ key, rawValue }) => ({
+        key,
         label: formatLabel(key),
         rawValue,
         value: formatValue(rawValue),
@@ -569,29 +571,8 @@ export default function ProjectDetailsPage() {
         </div>
       </section>
 
-      {summary.generalRows.length > 0 && (
-        <section className="rounded-2xl border border-[#d9d5cd] bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-bold text-[#1f2a44]">Additional Form Details</h2>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-[#e5e0d8] text-left text-xs uppercase tracking-[0.14em] text-[#6a7388]">
-                  <th className="px-3 py-3">Field</th>
-                  <th className="px-3 py-3">Value</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#eeeae3]">
-                {summary.generalRows.map((row, index) => (
-                  <tr key={`${row.label}-${index}`}>
-                    <td className="px-3 py-3 font-medium text-[#1f2a44]">{row.label}</td>
-                    <td className="px-3 py-3 text-[#35415d]">{row.value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
+      {summary.generalRows.length > 0 && <ProjectFormDetails rows={summary.generalRows} />}
+
     </div>
   );
 }

@@ -123,3 +123,16 @@ menu to assess pending forms in steps 3–6, select a reviewing department, save
 review progress, and approve the completed assessment. The server preserves the
 Requestor's submitted answers and records the approving account and timestamp.
 Approved forms remain available in Projects and the Approved section of Approvals.
+
+## Form detail data
+
+Selections are stored as JSON arrays of strings, documentation ratings as
+integers (1–5 for agreement questions and 1–10 for the overall rating), and
+committee recommendations as named committee objects with boolean stage1–stage3
+selections. Submission saves normalize and validate these fields. Legacy numeric
+strings, serialized recommendation objects, and the `documentation-rating` key
+are supported without a bulk rewrite. Existing records are normalized for display
+and editing; canonical types are persisted on subsequent saves.
+
+Project summaries group technical details, utility selections, documentation
+ratings, and a committee-stage matrix. PDF exports also use readable text.

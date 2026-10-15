@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { normalizeFormDetails, detailText } from '@/lib/form-details';
 import { REVIEW_DEPARTMENT_STEPS, REQUESTOR_REQUIRED_FIELDS, canReview } from '@/lib/workflow';
 import SectionAttachment from '@/components/SectionAttachment';
 import { ATTACHMENT_SECTIONS } from '@/lib/attachments';
@@ -178,9 +179,10 @@ export default function TECAssessmentForm({ approvalId = null }) {
     };
 
     const buildExportMarkup = () => {
+        const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
         const summaryEntries = [
             ['Email', email],
-            ...Object.entries(formData).map(([field, value]) => [formatFieldLabel(field), Object.hasOwn(ATTACHMENT_SECTIONS, field) ? (value?.name || 'Not provided') : value])
+            ...Object.entries(normalizeFormDetails(formData)).map(([field, value]) => [formatFieldLabel(field), Object.hasOwn(ATTACHMENT_SECTIONS, field) ? (value?.name || 'Not provided') : detailText(field, value)])
         ].filter(([, value]) => value !== undefined && value !== null && value !== '');
 
         const rows = summaryEntries.length > 0
@@ -191,8 +193,8 @@ export default function TECAssessmentForm({ approvalId = null }) {
 
                 return `
                     <tr>
-                      <th>${label}</th>
-                      <td>${displayValue}</td>
+                      <th>${escapeHtml(label)}</th>
+                      <td>${escapeHtml(displayValue)}</td>
                     </tr>
                 `;
             }).join('')
@@ -274,7 +276,7 @@ export default function TECAssessmentForm({ approvalId = null }) {
               setSubmissionId(record.id);
               setSubmissionStatus(record.status);
               setEmail(record.email);
-              setFormData(record.formData || {});
+              setFormData(normalizeFormDetails(record.formData || {}));
             }
           } else if (editId || response.status !== 404) {
             const payload = await response.json().catch(() => ({}));
@@ -1442,7 +1444,7 @@ export default function TECAssessmentForm({ approvalId = null }) {
                     <input
                       type="radio"
                       id={`documentation-rating-${value}`}
-                      name="documentation-rating"
+                      name="documentationRating"
                       value={value}
                       className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                     />

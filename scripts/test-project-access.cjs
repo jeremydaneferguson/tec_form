@@ -6,12 +6,13 @@ const path = require('node:path');
 function load(relativePath, bindings = {}) {
   let source = fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
   source = source.replace(/^import .*;\r?\n/gm, '').replace(/export async function /g, 'async function ').replace(/export function /g, 'function ').replace(/export const /g, 'const ');
-  return vm.runInNewContext(`(function() { ${source}; return { ${relativePath.includes('workflow') ? 'canReview, requestorData, reviewData, requestorCompletionErrors, REVIEW_DEPARTMENT_STEPS' : relativePath.includes('attachments') ? 'validateAttachments, MAX_ATTACHMENT_BYTES' : relativePath.includes('project-access') ? 'canViewAllProjects, projectScope' : 'GET, ' + (relativePath.includes('submissions') ? 'POST' : relativePath.includes('[id]') ? 'DELETE' : '')} }; })()`, { Response, Request, URL, console, ...bindings });
+  return vm.runInNewContext(`(function() { ${source}; return { ${relativePath.includes('form-details') ? 'normalizeFormDetails, validateFormDetails, detailText' : relativePath.includes('workflow') ? 'canReview, requestorData, reviewData, requestorCompletionErrors, REVIEW_DEPARTMENT_STEPS' : relativePath.includes('attachments') ? 'validateAttachments, MAX_ATTACHMENT_BYTES' : relativePath.includes('project-access') ? 'canViewAllProjects, projectScope' : 'GET, ' + (relativePath.includes('submissions') ? 'POST' : relativePath.includes('[id]') ? 'DELETE' : '')} }; })()`, { Response, Request, URL, console, ...bindings });
 }
 
 const policy = load('src/lib/project-access.js');
 const attachmentPolicy = load('src/lib/attachments.js');
 const workflowPolicy = load('src/lib/workflow.js');
+const detailsPolicy = load('src/lib/form-details.js');
 const records = [
   { id: 'own', email: 'OWNER@example.com', formData: {}, status: 'draft' },
   { id: 'other', email: 'other@example.com', formData: {}, status: 'draft' },
@@ -32,7 +33,7 @@ const prisma = { tECSubmission: {
   create: async ({ data }) => ({ id: 'new', ...data }),
   delete: async () => { throw new Error('Unauthorized delete reached database'); },
 } };
-const bindings = { prisma, getSessionUser: async () => user, ...policy, ...attachmentPolicy, ...workflowPolicy };
+const bindings = { prisma, getSessionUser: async () => user, ...policy, ...attachmentPolicy, ...workflowPolicy, ...detailsPolicy };
 const list = load('src/app/api/projects/route.js', bindings);
 const approvals = load('src/app/api/approvals/route.js', bindings);
 const details = load('src/app/api/projects/[id]/route.js', bindings);
@@ -48,6 +49,20 @@ const post = (body) => ({ json: async () => body });
   assert.equal((await submissions.POST(post({}))).status, 401);
   assert.equal((await approvals.GET()).status, 401);
   assert.equal(queries, 0);
+  const normalized = detailsPolicy.normalizeFormDetails({ objectives: '4', 'documentation-rating': '8', utilities: ['Fibre (ICT)', 'Fibre (ICT)', ' LPG '], approvalsRecommendations: '{"tender Committee":{"stage2":true,"stage3":"false"}}' });
+  assert.equal(normalized.objectives, 4);
+  assert.equal(normalized.documentationRating, 8);
+  assert.equal(normalized['documentation-rating'], undefined);
+  assert.equal(normalized.utilities.join('|'), 'Fibre (ICT)|LPG');
+  assert.equal(normalized.approvalsRecommendations['Tender Committee'].stage2, true);
+  assert.equal(normalized.approvalsRecommendations['Tender Committee'].stage3, false);
+  assert.equal(detailsPolicy.validateFormDetails(normalized).length, 0);
+  assert.equal(detailsPolicy.validateFormDetails({ objectives: 6 }).length, 1);
+  assert.equal(detailsPolicy.validateFormDetails({ documentationRating: 11 }).length, 1);
+  assert.equal(detailsPolicy.validateFormDetails({ approvalsRecommendations: { Other: { stage1: 'yes' } } }).length, 1);
+  assert.equal(detailsPolicy.detailText('objectives', 4), '4 / 5 — Agree');
+  assert.equal(detailsPolicy.detailText('approvalsRecommendations', normalized.approvalsRecommendations), 'Tender Committee: Stage 2');
+
   const maxFile = Buffer.alloc(attachmentPolicy.MAX_ATTACHMENT_BYTES).toString('base64');
   assert.equal(attachmentPolicy.validateAttachments({ existingBuildingAreaAttachment: { name: 'maximum.bin', size: attachmentPolicy.MAX_ATTACHMENT_BYTES, data: maxFile } }).length, 0);
   for (const role of ['admin', 'approver', ' Admin ']) {
@@ -109,9 +124,12 @@ const post = (body) => ({ json: async () => body });
     assert.equal((await submissions.POST(post({ id: 'other', workflow: 'approval', status: 'approved', formData: {} }))).status, 409);
   }
   user = { email: 'approver@example.com', role: 'approver' };
-  assert.equal((await submissions.POST(post({ id: 'own', workflow: 'approval', formData: { ...completed, projectName: 'Tampered', reviewingDepartment: 'EMD', deptReview_emd_adequacy: 'adequate' } }))).status, 200);
+  assert.equal((await submissions.POST(post({ id: 'own', workflow: 'approval', formData: { ...completed, projectName: 'Tampered', reviewingDepartment: 'EMD', deptReview_emd_adequacy: 'adequate', objectives: '4', 'documentation-rating': '8' } }))).status, 200);
   const assessed = await (await submissions.GET(request('id=own'))).json();
   assert.equal(assessed.status, 'submitted');
+  assert.equal(assessed.formData.objectives, 4);
+  assert.equal(assessed.formData.documentationRating, 8);
+  assert.equal((await submissions.POST(post({ id: 'own', workflow: 'approval', formData: { ...assessed.formData, objectives: 7 } }))).status, 400);
   assert.equal(assessed.formData.projectName, completed.projectName);
   assert.equal(assessed.formData.deptReview_emd_adequacy, 'adequate');
   assert.equal((await submissions.POST(post({ id: 'own', workflow: 'approval', status: 'approved', formData: {} }))).status, 400);

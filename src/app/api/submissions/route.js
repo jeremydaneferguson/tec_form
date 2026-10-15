@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { normalizeFormDetails, validateFormDetails } from '@/lib/form-details';
 import { validateAttachments } from '@/lib/attachments';
 import { getSessionUser } from '@/lib/session';
 import { projectScope } from '@/lib/project-access';
@@ -96,10 +97,10 @@ export async function POST(request) {
     if (existing && !(reviewing ? ['submitted', 'reviewed'] : ['draft']).includes(existing.status)) {
       return Response.json({ error: reviewing ? 'Only pending submissions can be assessed' : 'Submitted forms are read-only. View the project to track its approval.' }, { status: 409 });
     }
-    const data = reviewing
+    const data = normalizeFormDetails(reviewing
       ? { ...requestorData(existing.formData), ...reviewData(formData) }
-      : requestorData(formData);
-    const errors = validateSubmissionFields({ email: user.email, formData: data, status: nextStatus, requireEmail: true });
+      : requestorData(formData));
+    const errors = [...validateFormDetails(data), ...validateSubmissionFields({ email: user.email, formData: data, status: nextStatus, requireEmail: true })];
     if (!reviewing && nextStatus === 'submitted') errors.push(...requestorCompletionErrors(data));
     if (reviewing && nextStatus === 'approved') {
       if (!Object.hasOwn(REVIEW_DEPARTMENT_STEPS, data.reviewingDepartment || '')) errors.push('Select a reviewing department');
